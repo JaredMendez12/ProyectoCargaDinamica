@@ -1,0 +1,43 @@
+\documentclass[9pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern,xcolor,listings}
+\usepackage[margin=1.6cm]{geometry}
+\usepackage[hidelinks]{hyperref}
+\lstset{language=Python,basicstyle=\ttfamily\scriptsize,keywordstyle=\color{blue!60!black}\bfseries,
+ commentstyle=\color{green!40!black}\itshape,stringstyle=\color{orange!70!black},numbers=left,
+ numberstyle=\tiny\color{gray},breaklines=true,frame=single,rulecolor=\color{gray!50},
+ showstringspaces=false,tabsize=4,columns=fullflexible,keepspaces=true,
+ literate={á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1 {ñ}{{\~n}}1 {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1 {Ñ}{{\~N}}1 {¿}{{?`}}1 {¡}{{!`}}1 {→}{{->}}2 {←}{{<-}}2 {–}{{-}}1 {—}{{--}}1 {≈}{{~}}1 {×}{{x}}1 {≤}{{<=}}2 {≥}{{>=}}2 {·}{{.}}1 {°}{{o}}1 {º}{{o}}1 {²}{{2}}1}
+\begin{document}
+\begin{center}{\Large\bfseries C\'odigo fuente: Carga din\'amica}\\[2pt]
+Balanceo de carga est\'atico vs.\ din\'amico (Maestro--Trabajador) con Python + mpi4py\\[2pt]
+\small Jared M\'endez Valencia $\cdot$ Daniel del Valle Andrade $\cdot$ Johan Lezama N\'u\~nez $\cdot$ Camila Serrano Trinidad\end{center}
+\tableofcontents
+\section{\texttt{balanceo.py}}
+Programa principal (mpi4py): maestro, trabajadores y estrategias de reparto.
+\lstinputlisting{balanceo.py}
+\clearpage
+\section{\texttt{experimentos.py}}
+Ejecuta los escenarios y guarda los resultados en JSON.
+\lstinputlisting{experimentos.py}
+\clearpage
+\section{\texttt{graficas.py}}
+Genera las figuras a partir de los resultados.
+\lstinputlisting{graficas.py}
+\clearpage
+\section{\texttt{tabla\_latex.py}}
+Convierte los resultados en macros y tablas de LaTeX.
+\lstinputlisting{tabla_latex.py}
+\clearpage
+\section{\texttt{cluster\_diagnostico.py}}
+Diagn\'ostico del cl\'uster de laptops: IP, latencia al maestro, velocidad relativa y GPU.
+\lstinputlisting{cluster_diagnostico.py}
+\clearpage
+\section{\texttt{servidor\_demo.py}}
+Servidor local de la demo en vivo: ejecuta \texttt{mpiexec} con par\'ametros validados y devuelve los intervalos reales.
+\lstinputlisting{servidor_demo.py}
+\clearpage
+\section{\texttt{cluster/hosts.txt.ejemplo}}
+\lstinputlisting[numbers=none]{cluster/hosts.txt.ejemplo}
+\end{document}

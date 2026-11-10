@@ -1,0 +1,613 @@
+% =====================================================================
+%  Carga dinámica: balanceo estático vs dinámico (Maestro-Trabajador)
+%  Diseño claro / editorial.   Compilar con XeLaTeX (2 veces):
+%      xelatex main.tex
+%  (en Overleaf: Menú > Compiler > XeLaTeX)
+%  Las fuentes (Kalam) están en ../fuentes/ ; las figuras en ../resultados/figuras_claro/
+%  Guion del expositor:  python guion.py && pdflatex guion.tex
+%  Antes: python ../tabla_latex.py   (genera numeros.tex)
+% =====================================================================
+\documentclass[aspectratio=169,11pt,t]{beamer}
+
+\usepackage{fontspec}
+\IfFileExists{spanish.ldf}{\usepackage[spanish,es-noshorthands]{babel}}{\usepackage[english]{babel}}
+\usepackage{booktabs,array,colortbl,graphicx,amsmath,listings}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc,patterns,backgrounds}
+
+% ---------- datos de la portada ----------
+\newcommand{\materia}{Cómputo Paralelo Distribuido}
+\newcommand{\grupo}{7C}
+\newcommand{\carrera}{Ingeniería en Sistemas y Tecnología de la Información}
+
+\input{numeros.tex}
+
+% ---------- tipografía: Kalam (trazo manuscrito, vertical, legible) ----------
+\setmainfont{Kalam-Regular.ttf}[Path=../fuentes/,BoldFont=Kalam-Bold.ttf,
+  ItalicFont=Kalam-Regular.ttf,BoldItalicFont=Kalam-Bold.ttf]
+\setsansfont{Kalam-Regular.ttf}[Path=../fuentes/,BoldFont=Kalam-Bold.ttf,
+  ItalicFont=Kalam-Regular.ttf,BoldItalicFont=Kalam-Bold.ttf]
+\setmonofont{Latin Modern Mono}[Scale=0.88]
+\newfontfamily\kalamL{Kalam-Light.ttf}[Path=../fuentes/]
+\usefonttheme{professionalfonts}
+\renewcommand{\familydefault}{\sfdefault}
+
+% ---------- paleta: papel, tinta y dos acentos ----------
+\definecolor{papel}{HTML}{F6F3EC}
+\definecolor{hoja}{HTML}{FBF9F4}
+\definecolor{panel}{HTML}{ECE6D8}
+\definecolor{tinta}{HTML}{23201C}
+\definecolor{suave}{HTML}{6F685C}
+\definecolor{regla}{HTML}{D6CFC0}
+\definecolor{trazo}{HTML}{B3AB9A}
+\definecolor{estatico}{HTML}{9C3D54}
+\definecolor{dinamico}{HTML}{2F6B5A}
+\definecolor{guiado}{HTML}{4C63A8}
+\definecolor{ocre}{HTML}{C9962B}
+
+\setbeamercolor{background canvas}{bg=papel}
+\setbeamercolor{normal text}{fg=tinta}
+\setbeamersize{text margin left=1.2cm,text margin right=1.2cm}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize item}{\color{dinamico}\textbullet}
+\setbeamertemplate{itemize subitem}{\color{estatico}\textbullet}
+\setlength{\leftmargini}{1.1em}
+
+% ---------- encabezado y pie ----------
+\newcommand{\dos}[1]{\ifnum#1<10 0\fi#1}
+\setbeamertemplate{frametitle}{%
+  \vskip 2.4ex
+  \hbox to \textwidth{{\fontsize{7.5}{9}\selectfont\addfontfeature{LetterSpace=10}%
+    \color{estatico}\dos{\insertframenumber}\hspace{.6em}\color{suave}\MakeUppercase{\insertsection}}\hfill}\par
+  \vskip 0.2ex
+  {\kalamL\fontsize{20}{22}\selectfont\color{tinta}\insertframetitle\par}
+  \vskip 0.7ex
+  {\color{regla}\hrule height .5pt}\vskip -0.22cm}
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox to \paperwidth{\hspace*{1.2cm}%
+    {\fontsize{7}{8}\selectfont\color{suave}Carga dinámica \hspace{.3em}/\hspace{.3em} \materia\hfill
+     \insertframenumber\,/\,\inserttotalframenumber}\hspace*{1.2cm}}\vskip 2.4ex}
+
+% ---------- macros de texto ----------
+\newcommand{\ok}[1]{\leavevmode{\color{dinamico}#1}}
+\newcommand{\ko}[1]{\leavevmode{\color{estatico}#1}}
+\newcommand{\mono}[1]{\leavevmode{\ttfamily\color{guiado}#1}}
+\newcommand{\fuente}[1]{\vfill{\fontsize{7}{8.4}\selectfont\color{suave}#1}}
+\newcommand{\etq}[2]{{\fontsize{7.5}{9}\selectfont\addfontfeature{LetterSpace=10}\color{#1}\MakeUppercase{#2}}}
+\newcommand{\numeral}[2]{{\kalamL\fontsize{30}{32}\selectfont\color{#1}#2}}
+\newcommand{\grande}[2]{{\kalamL\fontsize{30}{32}\selectfont\color{#1}#2}}
+\renewcommand{\arraystretch}{1.3}
+\setlength{\aboverulesep}{1.2pt}\setlength{\belowrulesep}{1.2pt}\urlstyle{same}
+\newcommand{\mx}{\mathop{\text{máx}}\limits}
+\newcommand{\linea}{{\color{regla}\rule{\linewidth}{.5pt}}}
+
+% ---------- estilos de TikZ ----------
+\tikzset{
+  nodo/.style={rounded corners=2pt,fill=hoja,draw=trazo,line width=.5pt,
+    inner sep=4pt,text=tinta,font=\small,align=center},
+  flecha/.style={-{Stealth[length=4.5pt]},line width=.8pt,color=suave},
+  txtp/.style={font=\scriptsize,text=suave},
+  txtm/.style={font=\ttfamily\scriptsize,text=guiado},
+  ocioso/.style={pattern=north east lines,pattern color=trazo},
+}
+
+% ---------- dibujos: persona (con gorro opcional) y caja ----------
+\tikzset{pics/persona/.style args={#1/#2}{code={
+  \fill[#1] (0,.42) circle (.15);
+  \fill[#1] (-.24,0) .. controls (-.24,.3) and (.24,.3) .. (.24,0) -- cycle;
+  \ifnum#2=1
+    \draw[fill=hoja,draw=tinta,line width=.4pt] (-.12,.55) rectangle (.12,.68);
+    \draw[fill=hoja,draw=tinta,line width=.4pt] (0,.72) ellipse (.17 and .09);
+  \fi}}}
+\newcommand{\caja}[3]{\fill[#3] (#1,#2) rectangle ++(.32,.32);\draw[papel,line width=.5pt] ({#1+.16},#2) -- ++(0,.32);}
+
+% ---------- pseudocódigo ----------
+\lstdefinelanguage{pseudo}{morekeywords={PARA,CADA,EN,MIENTRAS,SI,ENTONCES,SINO,
+  REPETIR,ENVIAR,RECIBIR,SCATTER,BARRERA,salir},sensitive=true,morecomment=[l]{//}}
+\lstset{language=pseudo,
+  basicstyle=\ttfamily\fontsize{6.2}{7.2}\selectfont\color{tinta},
+  keywordstyle=\color{dinamico}\bfseries,commentstyle=\color{suave},
+  backgroundcolor=\color{hoja},frame=single,rulecolor=\color{regla},framesep=4pt,
+  xleftmargin=5pt,xrightmargin=2pt,showstringspaces=false,breaklines=true,
+  keepspaces=true,columns=fullflexible,aboveskip=2pt,belowskip=0pt,
+  literate={<-}{{$\leftarrow$}}1 {->}{{$\rightarrow$}}1}
+
+\begin{document}
+
+% ===================================================================== 1
+\begin{frame}[plain]
+\begin{tikzpicture}[remember picture,overlay]
+  \node[anchor=north,text width=13cm,align=center,inner sep=0] at ([yshift=-.9cm]current page.north) {%
+    {\fontsize{8}{10}\selectfont\addfontfeature{LetterSpace=18}\color{suave}\MakeUppercase{UVP \;·\; \materia}}\\[7pt]
+    {\color{regla}\rule{1.6cm}{.6pt}}};
+  \node[align=center,inner sep=0,text width=13cm] at ([yshift=-.2cm]current page.center) {%
+    {\kalamL\fontsize{42}{46}\selectfont\color{tinta}Carga dinámica}\\[8pt]
+    {\fontsize{11}{15}\selectfont\color{suave}Balanceo de carga estático vs.\ dinámico\\en una arquitectura Maestro–Trabajador}\\[11pt]
+    {\color{regla}\rule{1.6cm}{.6pt}}\\[8pt]
+    {\fontsize{8}{10}\selectfont\addfontfeature{LetterSpace=18}\color{suave}\MakeUppercase{Alumnos}}\\[4pt]
+    {\fontsize{10.5}{14}\selectfont Jared Méndez Valencia \;\color{regla}|\;\color{tinta} Daniel del Valle Andrade\\
+     Johan Lezama Núñez \;\color{regla}|\;\color{tinta} Camila Serrano Trinidad}};
+  \node[anchor=south,text width=13cm,align=center,inner sep=0,font=\fontsize{7.5}{10}\selectfont,text=suave] at ([yshift=.45cm]current page.south) {\carrera\\Grupo \grupo};
+\end{tikzpicture}
+\note[item]{Presentación del equipo: cada integrante dice su nombre y qué parte expone.}
+\note[item]{Frase gancho: ``¿Qué pasa cuando un nodo lento frena a uno rápido?'' Hoy lo vemos con teoría y con una simulación en una laptop.}
+\end{frame}
+
+% ===================================================================== 2
+\section{Introducción}
+\begin{frame}{Objetivos}
+{\kalamL\fontsize{15}{20}\selectfont Comprender y comparar el balanceo de carga \textbf{\color{estatico}estático} y \textbf{\color{dinamico}dinámico} en una arquitectura Maestro–Trabajador, y demostrarlo con una simulación en MPI.\par}
+\vspace{.55cm}
+\begin{columns}[T,onlytextwidth]
+\column{.22\textwidth}\linea\\[3pt]\numeral{estatico}{01}\\[2pt]\textbf{Explicar}\\[2pt]{\small\color{suave}Cómo se reparte el trabajo para que un nodo lento no frene a uno rápido.}
+\column{.22\textwidth}\linea\\[3pt]\numeral{dinamico}{02}\\[2pt]\textbf{Comparar}\\[2pt]{\small\color{suave}El algoritmo estático vs.\ el dinámico, con paquetes según la velocidad.}
+\column{.22\textwidth}\linea\\[3pt]\numeral{guiado}{03}\\[2pt]\textbf{Proponer}\\[2pt]{\small\color{suave}Estrategias para evitar nodos en espera.}
+\column{.22\textwidth}\linea\\[3pt]\numeral{ocre}{04}\\[2pt]\textbf{Medir}\\[2pt]{\small\color{suave}Tiempo, speedup, eficiencia y ocio con Python y mpi4py.}
+\end{columns}
+\note[item]{Los cuatro objetivos específicos coinciden con lo que pide el tema: cómo se reparte, algoritmo estático vs dinámico, paquetes según velocidad y estrategias para evitar nodos en espera.}
+\end{frame}
+
+% ===================================================================== 3
+\section{El problema}
+\begin{frame}{Un nodo lento frena a uno rápido}
+\begin{columns}[c,onlytextwidth]
+\column{.66\textwidth}
+\begin{tikzpicture}[scale=.72]
+  \foreach \i/\d/\n in {0/2.2/{Nodo 1 · v=1},1/2.2/{Nodo 2 · v=1},2/4.4/{Nodo 3 · v=0.5},3/8.8/{Nodo 4 · v=0.25}}{
+    \node[txtp,anchor=east] at (-.15,{-\i*.9-.28}) {\n};
+    \fill[estatico] (0,{-\i*.9}) rectangle ({\d},{-\i*.9-.56});
+    \fill[ocioso] ({\d},{-\i*.9}) rectangle (8.8,{-\i*.9-.56});
+  }
+  \draw[dashed,tinta,line width=.6pt] (8.8,.3) -- (8.8,-3.6);
+  \node[txtp,anchor=south] at (8.8,.3) {fin del trabajo};
+  \node[txtp,anchor=north] at (4.4,-3.65) {tiempo $\longrightarrow$};
+  \fill[estatico] (1.2,-4.6) rectangle ++(.4,.25); \node[txtp,anchor=west] at (1.7,-4.48) {trabajando};
+  \fill[ocioso] (3.9,-4.6) rectangle ++(.4,.25); \node[txtp,anchor=west] at (4.4,-4.48) {ocioso (esperando)};
+\end{tikzpicture}
+\column{.3\textwidth}
+\linea\\[4pt]
+{\etq{suave}{Reparto igual para todos}}\\[6pt]
+{\kalamL\fontsize{24}{26}\selectfont\color{estatico}$T=\mx_i T_i$}\\[6pt]
+{\small El trabajo termina cuando termina el \ko{más lento}; los rápidos esperan.}
+\end{columns}
+\note[item]{Aquí está la idea central de todo el tema: con un reparto igual, el trabajo termina cuando termina el nodo más lento.}
+\note[item]{Los nodos rápidos quedan ociosos: se paga hardware que no se aprovecha.}
+\end{frame}
+
+% ===================================================================== 4
+% ===================================================================== (nueva) analogía
+\begin{frame}{Una analogía: las cajas del súper}
+\begin{columns}[T,onlytextwidth]
+\column{.48\textwidth}
+{\etq{estatico}{Una fila por caja}} \hfill {\fontsize{8}{10}\selectfont\color{suave}estático}\\[2pt]\linea\\[6pt]
+\centering
+\begin{tikzpicture}[scale=.92,transform shape]
+  \foreach \i/\v/\r in {0/1/0, 1/1/0, 2/0.5/2, 3/0.25/3}{
+    \node[txtp,anchor=east] at (-.4,{-\i*.8+.15}) {v=\v};
+    \pic[scale=1.1] at (0,{-\i*.8}) {persona={suave/0}};
+    \draw[trazo,line width=.5pt] (-.3,{-\i*.8-.03}) -- (.3,{-\i*.8-.03});
+    \ifnum\r=0
+      \node[font=\scriptsize\itshape,text=estatico,anchor=west] at (.5,{-\i*.8+.18}) {libre};
+    \else
+      \foreach \k in {1,...,\r}{\caja{.35+\k*.42}{-\i*.8}{estatico}}
+    \fi
+  }
+\end{tikzpicture}\\[6pt]
+{\small Mismo número de carritos para todas: las cajas rápidas \ko{se quedan sin trabajo}.}
+\column{.02\textwidth}
+\column{.48\textwidth}
+{\etq{dinamico}{Una sola fila}} \hfill {\fontsize{8}{10}\selectfont\color{suave}dinámico}\\[2pt]\linea\\[6pt]
+\centering
+\begin{tikzpicture}[scale=.92,transform shape]
+  \foreach \k in {0,1,2}{\caja{-1.4+\k*.42}{-1.15}{dinamico}}
+  \node[txtp] at (-.8,-1.7) {fila única};
+  \foreach \i/\v in {0/1, 1/1, 2/0.5, 3/0.25}{
+    \draw[flecha,trazo] (.05,-.99) -- (1.0,{-\i*.8+.12});
+    \pic[scale=1.1] at (1.35,{-\i*.8}) {persona={suave/0}};
+    \draw[trazo,line width=.5pt] (1.05,{-\i*.8-.03}) -- (1.65,{-\i*.8-.03});
+    \caja{1.8}{-\i*.8}{dinamico}
+    \node[txtp,anchor=west] at (2.25,{-\i*.8+.15}) {v=\v};
+  }
+\end{tikzpicture}\\[6pt]
+{\small La siguiente caja libre atiende al siguiente: \ok{nadie espera}.}
+\end{columns}
+\note[item]{Analogía cotidiana: las cajas de un supermercado. Del lado izquierdo, cada caja recibe su propia fila con el mismo número de carritos; las cajas rápidas terminan y se quedan sin trabajo mientras la lenta sigue acumulando fila.}
+\note[item]{Del lado derecho hay una sola fila (como en un banco): el siguiente cliente pasa a la primera caja que se libere. Eso es exactamente el esquema Maestro--Trabajador dinámico: el trabajador pide más trabajo cuando termina.}
+\end{frame}
+
+\begin{frame}{Conceptos y métricas}
+\begin{columns}[T,onlytextwidth]
+\column{.5\textwidth}
+\small\renewcommand{\arraystretch}{1.05}\arrayrulecolor{regla}
+\begin{tabular}{@{}>{\bfseries\color{estatico}}l@{\hspace{.5cm}}l@{}}
+Nodo & máquina o proceso MPI\\[2pt] \midrule[.4pt]
+Tarea & unidad de trabajo con costo\\[2pt] \midrule[.4pt]
+Paquete & tareas entregadas juntas\\[2pt] \midrule[.4pt]
+Maestro & reparte y coordina\\[2pt] \midrule[.4pt]
+Trabajador & ejecuta y pide más\\[2pt] \midrule[.4pt]
+Heterogeneidad & velocidades $v_i$ distintas
+\end{tabular}
+\column{.46\textwidth}
+\renewcommand{\arraystretch}{1}
+\begin{tabular}{@{}l@{\hspace{.6cm}}l@{}}
+\etq{suave}{Tiempo total} & \large $T=\mx_i T_i$\\[7pt]\midrule[.4pt]
+\etq{suave}{Speedup} & \large $S=T_{1\,\text{nodo}}/T$\\[7pt]\midrule[.4pt]
+\etq{suave}{Eficiencia} & \large $E=T_{\text{ideal}}/T$\\[7pt]\midrule[.4pt]
+\etq{suave}{Utilización} & \large $U=\text{ocupado}/T$
+\end{tabular}\\[5pt]
+{\fontsize{8}{10}\selectfont\color{suave}$T_{\text{ideal}}=\sum c_j/\sum v_i$ (balance perfecto, sin costo de comunicación)}
+\end{columns}
+\note[item]{Define con tus palabras cada concepto; son el vocabulario del resto de la exposición.}
+\note[item]{El ideal es el balance perfecto sin costos de comunicación: el trabajo total entre la suma de velocidades. Si la eficiencia es 100\,\% nadie espera.}
+\note[item]{Referencia de métricas: Pacheco \& Malensek (2022).}
+\end{frame}
+
+% ===================================================================== 5
+\section{Maestro–Trabajador}
+\begin{frame}{Arquitectura Maestro–Trabajador}
+\centering
+\begin{tikzpicture}[scale=.9,transform shape]
+  \node[nodo,minimum width=3.6cm,minimum height=3.3cm,draw=tinta,line width=.8pt] (m) at (0,0) {};
+  \pic[scale=1.5] at (-3.2,-.7) {persona={tinta/1}};
+  \node[font=\bfseries\small,text=tinta] at (0,1.25) {Maestro · rank 0};
+  \node[txtp] at (0,.85) {cola de tareas};
+  \foreach \k in {0,...,5}{\fill[trazo] ({-1.2+\k*.4},.2) rectangle ++(.32,.32);}
+  \foreach \k in {0,...,5}{\fill[regla] ({-1.2+\k*.4},-.25) rectangle ++(.32,.32);}
+  \node[txtp] at (0,-.85) {decide qué, cuánto y a quién};
+  \foreach \i/\n/\v/\c in {0/{Trabajador 1}/1/dinamico, 1/{Trabajador 2}/1/dinamico, 2/{Trabajador 3}/0.5/ocre, 3/{Trabajador 4}/0.25/estatico}{
+    \node[nodo,minimum width=3.4cm,minimum height=.8cm,anchor=west] (w\i) at (6.6,{1.65-\i*1.1}) {};
+    \node[font=\small,text=tinta,anchor=west] at (7.2,{1.82-\i*1.1}) {\n};
+    \pic[scale=.6] at (6.95,{1.43-\i*1.1}) {persona={\c/0}};
+    \fill[\c] (7.2,{1.45-\i*1.1}) rectangle ({7.2+1.2*\v},{1.45-\i*1.1+.1});
+    \node[txtp,anchor=west] at ({7.4+1.2*\v},{1.5-\i*1.1}) {v=\v};
+  }
+  \foreach \i in {0,...,3}{
+    \draw[flecha,estatico] ([yshift=-5pt]w\i.west) -- ++(-1.7,0);
+    \draw[flecha,dinamico] ([yshift=6pt]m.east) -- ([yshift=6pt]w\i.west);
+  }
+  \node[font=\scriptsize\bfseries,text=estatico] at (4.3,2.45) {1 \; ``estoy libre''};
+  \node[font=\scriptsize\bfseries,text=dinamico] at (5.0,-2.65) {2 \; paquete de tareas};
+\end{tikzpicture}
+\fuente{El maestro solo coordina; el que se desocupa pide más trabajo (esquema bajo demanda; Fernandes et al., 2024).}
+\note[item]{El maestro (rank 0) tiene la cola de tareas y no calcula. Los trabajadores son los nodos, cada uno con su velocidad.}
+\note[item]{Dos mensajes: el trabajador dice ``estoy libre'' y el maestro responde con un paquete.}
+\end{frame}
+
+% ===================================================================== 6
+\begin{frame}{Protocolo de mensajes}
+\centering
+\begin{tikzpicture}[x=1cm,y=1cm,scale=.84]
+  \node[nodo,draw=tinta] (M) at (1.2,0) {Maestro};
+  \node[nodo,draw=tinta] (T) at (9.4,0) {Trabajador};
+  \pic[scale=.85] at (1.2,.4) {persona={tinta/1}};
+  \pic[scale=.85] at (9.4,.4) {persona={dinamico/0}};
+  \draw[trazo,line width=.7pt] (1.2,-.35) -- (1.2,-5.1);
+  \draw[trazo,line width=.7pt] (9.4,-.35) -- (9.4,-5.1);
+  \draw[flecha,estatico] (9.4,-.9) -- (1.2,-.9) node[midway,above,txtm,text=estatico] {PEDIR};
+  \draw[flecha,dinamico] (1.2,-1.6) -- (9.4,-1.6) node[midway,above,txtm,text=dinamico] {TRABAJO [c$_1$ … c$_k$]};
+  \fill[dinamico!80] (9.25,-1.8) rectangle (9.55,-2.9);
+  \node[txtp,anchor=west] at (9.7,-2.35) {ejecuta: \mono{sleep(c / v)}};
+  \draw[flecha,estatico] (9.4,-3.15) -- (1.2,-3.15) node[midway,above,txtm,text=estatico] {PEDIR};
+  \draw[flecha,dinamico] (1.2,-3.85) -- (9.4,-3.85) node[midway,above,txtm,text=dinamico] {TRABAJO [c$_{k+1}$ …]};
+  \node[txtp] at (5.3,-4.45) {$\vdots$};
+  \draw[flecha,ocre] (1.2,-5.0) -- (9.4,-5.0) node[midway,above,txtm,text=ocre] {FIN (la cola ya está vacía)};
+  \node[txtm,anchor=east,text=suave] at (.9,-.9) {recv(ANY\_SOURCE)};
+  \node[txtm,anchor=east,text=suave] at (.9,-1.6) {send(dest=w)};
+\end{tikzpicture}
+\note[item]{Tres tipos de mensaje: PEDIR, TRABAJO y FIN. En mpi4py el maestro usa recv con ANY\_SOURCE para atender al primero que pida.}
+\note[item]{El trabajador es quien manda el ritmo: pide cuando termina. Eso es lo que hace al esquema dinámico.}
+\end{frame}
+
+% ===================================================================== 7
+\section{Estático vs. dinámico}
+\begin{frame}{Estático vs.\ dinámico}
+\begin{columns}[T,onlytextwidth]
+\column{.47\textwidth}
+{\etq{estatico}{Estático}} \hfill {\fontsize{8}{10}\selectfont\color{suave}se decide antes de ejecutar}\\[2pt]\linea\\[8pt]
+\centering
+\begin{tikzpicture}[scale=.68]
+  \foreach \i/\n/\w in {0/{v=1}/.45,1/{v=1}/.45,2/{v=0.5}/.9,3/{v=0.25}/1.8}{
+    \node[txtp,anchor=east] at (-.1,{-\i*.75-.25}) {\n};
+    \foreach \k in {1,...,4}{\fill[estatico] ({(\k-1)*\w+.03},{-\i*.75}) rectangle ({\k*\w-.03},{-\i*.75-.5});}
+    \pgfmathsetmacro{\fin}{4*\w}
+    \fill[ocioso] ({\fin},{-\i*.75}) rectangle (7.2,{-\i*.75-.5});
+  }
+  \draw[dashed,tinta,line width=.5pt] (7.2,.25) -- (7.2,-2.8);
+\end{tikzpicture}\\[4pt]
+{\small Las mismas 4 tareas para todos: el rápido \ko{espera}.}\\[2pt]
+{\fontsize{8}{10}\selectfont\color{suave}1 mensaje por nodo (\mono{Scatter})}
+\column{.02\textwidth}
+\column{.47\textwidth}
+{\etq{dinamico}{Dinámico}} \hfill {\fontsize{8}{10}\selectfont\color{suave}pide el que se desocupa}\\[2pt]\linea\\[8pt]
+\centering
+\begin{tikzpicture}[scale=.68]
+  \foreach \i/\n/\w/\c in {0/{v=1}/.8/9,1/{v=1}/.8/9,2/{v=0.5}/1.6/4,3/{v=0.25}/3.2/2}{
+    \node[txtp,anchor=east] at (-.1,{-\i*.75-.25}) {\n};
+    \foreach \k in {1,...,9}{\ifnum\k>\c\relax\else
+      \fill[dinamico] ({(\k-1)*\w+.03},{-\i*.75}) rectangle ({\k*\w-.03},{-\i*.75-.5});\fi}
+  }
+  \draw[dashed,tinta,line width=.5pt] (7.2,.25) -- (7.2,-2.8);
+\end{tikzpicture}\\[4pt]
+{\small Paquetes iguales: el rápido hace \ok{más} y todos terminan juntos.}\\[2pt]
+{\fontsize{8}{10}\selectfont\color{suave}cola en el maestro · $\approx 2$ mensajes por paquete}
+\end{columns}
+\note[item]{Izquierda, estático: el maestro decide todo al inicio. Con el mismo número de tareas para todos, el nodo rápido termina antes y espera (zona rayada).}
+\note[item]{Derecha, dinámico: con paquetes iguales el nodo rápido pide más veces y hace más tareas; todos terminan casi juntos. El costo es la comunicación.}
+\end{frame}
+
+% ===================================================================== 8
+\begin{frame}[fragile]{Algoritmos: estático y dinámico}
+\begin{columns}[T,onlytextwidth]
+\column{.45\textwidth}
+{\etq{estatico}{Estático}}\\[3pt]
+\begin{lstlisting}
+// MAESTRO: decide TODO antes
+PARA CADA nodo i EN 1..W:
+    lote[i] <- tareas asignadas
+          (bloque | cíclico | v_i)
+SCATTER(lote)    // 1 msj por nodo
+
+// TRABAJADOR i
+lote <- RECIBIR
+PARA CADA tarea EN lote:
+    ejecutar(tarea)
+BARRERA          // espera al más lento
+\end{lstlisting}\vspace{10pt}
+{\small\color{suave}La diferencia clave: en el dinámico, \textbf{el ritmo lo marca el trabajador}.}
+\column{.53\textwidth}
+{\etq{dinamico}{Dinámico}}\\[3pt]
+\begin{lstlisting}
+// MAESTRO
+cola <- todas las tareas
+MIENTRAS haya nodos activos:
+    i <- RECIBIR(cualquiera)
+    SI cola no vacía ENTONCES
+        ENVIAR(i, siguiente paquete)
+    SINO
+        ENVIAR(i, FIN)
+
+// TRABAJADOR i
+REPETIR
+    ENVIAR(PEDIR)
+    paquete <- RECIBIR
+    SI paquete = FIN ENTONCES salir
+    PARA CADA tarea EN paquete:
+        ejecutar(tarea)
+\end{lstlisting}
+\end{columns}
+\note[item]{Estático: el maestro arma los lotes, los envía con un Scatter y cada trabajador procesa lo suyo; la barrera final es la espera.}
+\note[item]{Dinámico: el maestro atiende el primer PEDIR que llegue y responde con un paquete; termina cuando la cola se vacía y envía FIN. El código real está en el archivo aparte balanceo.py.}
+\end{frame}
+
+% ===================================================================== 9
+% ===================================================================== (nueva) ejemplo
+\begin{frame}{Ejemplo paso a paso: 8 tareas, 2 nodos}
+{\small\color{suave}Cada tarea es una unidad de trabajo. El \textbf{nodo A} hace una tarea en 0.5\,s; el \textbf{nodo B}, en 1\,s.}\par\vspace{4pt}
+\centering
+\begin{tikzpicture}[scale=.92,transform shape]
+  \def\u{2.4}
+  % --- estático
+  \node[txtp,anchor=west,text=estatico] at (0,.45) {\textbf{ESTÁTICO}  ·  4 y 4};
+  \foreach \k in {0,...,3}{\fill[estatico] ({\k*.5*\u+.02},-.05) rectangle ({(\k+1)*.5*\u-.02},-.5); \node[text=papel,font=\scriptsize\bfseries] at ({(\k+.5)*.5*\u},-.28) {\the\numexpr\k+1\relax};}
+  \fill[ocioso] ({2*\u},-.05) rectangle ({4*\u},-.5);
+  \foreach \k in {0,...,3}{\fill[estatico] ({\k*\u+.02},-.6) rectangle ({(\k+1)*\u-.02},-1.05); \node[text=papel,font=\scriptsize\bfseries] at ({(\k+.5)*\u},-.83) {\the\numexpr\k+5\relax};}
+  \node[txtp,anchor=east] at (-.15,-.28) {Nodo A};
+  \node[txtp,anchor=east] at (-.15,-.83) {Nodo B};
+  % --- dinámico
+  \node[txtp,anchor=west,text=dinamico] at (0,-1.6) {\textbf{DINÁMICO}  ·  quien se desocupa toma la siguiente};
+  \foreach \k/\t in {0/1,1/3,2/4,3/6,4/7}{\fill[dinamico] ({\k*.5*\u+.02},-2.0) rectangle ({(\k+1)*.5*\u-.02},-2.45); \node[text=papel,font=\scriptsize\bfseries] at ({(\k+.5)*.5*\u},-2.23) {\t};}
+  \fill[ocioso] ({2.5*\u},-2.0) rectangle ({3*\u},-2.45);
+  \foreach \k/\t in {0/2,1/5,2/8}{\fill[dinamico] ({\k*\u+.02},-2.55) rectangle ({(\k+1)*\u-.02},-3.0); \node[text=papel,font=\scriptsize\bfseries] at ({(\k+.5)*\u},-2.78) {\t};}
+  \node[txtp,anchor=east] at (-.15,-2.23) {Nodo A};
+  \node[txtp,anchor=east] at (-.15,-2.78) {Nodo B};
+  % --- eje y metas
+  \draw[trazo,line width=.5pt] (0,-3.3) -- ({4*\u},-3.3);
+  \foreach \t in {0,1,2,3,4}{\draw[trazo,line width=.5pt] ({\t*\u},-3.3) -- ({\t*\u},-3.4); \node[txtp,anchor=north] at ({\t*\u},-3.4) {\t\,s};}
+  \draw[dashed,estatico,line width=.7pt] ({4*\u},.2) -- ({4*\u},-3.3);
+  \draw[dashed,dinamico,line width=.7pt] ({3*\u},-1.5) -- ({3*\u},-3.3);
+  \node[font=\scriptsize\bfseries,text=estatico,anchor=south west,align=left] at ({4*\u+.1},-.4) {termina\\en 4\,s};
+  \node[font=\scriptsize\bfseries,text=dinamico,anchor=south west,align=left] at ({3*\u+.1},-2.55) {termina\\en 3\,s};
+\end{tikzpicture}\\[2pt]
+{\large Estático \ko{4\,s} $\;\rightarrow\;$ dinámico \ok{3\,s} \; {\small(25\,\% menos; el ideal sería 2.67\,s)}}
+\note[item]{Ejemplo con números chiquitos para entender el algoritmo: 8 tareas iguales; el nodo A hace una en 0.5 s y el B en 1 s.}
+\note[item]{Estático: se reparten 4 y 4 desde el inicio. A termina en 2 s y espera 2 s sin hacer nada; B termina en 4 s. Tiempo total: 4 s.}
+\note[item]{Dinámico: cada quien pide la siguiente tarea al terminar. A acaba haciendo 5 tareas y B hace 3; el trabajo termina en 3 s. El ideal con balance perfecto sería 8 entre (2+1) tareas por segundo, es decir 2.67 s.}
+\end{frame}
+
+\begin{frame}{Cuadro comparativo}
+\small\renewcommand{\arraystretch}{1.2}\arrayrulecolor{regla}
+\begin{tabular}{@{}>{\bfseries\raggedright\arraybackslash}p{3.8cm}p{4.9cm}p{4.9cm}@{}}
+\toprule[.8pt]
+\etq{suave}{Criterio} & \etq{estatico}{Estático} & \etq{dinamico}{Dinámico} \\ \midrule[.5pt]
+Cuándo se reparte & Antes de ejecutar & Durante la ejecución \\ \midrule[.3pt]
+Mensajes & \ok{Pocos (1 por nodo)} & \ko{Muchos ($\approx 2$ por paquete)} \\ \midrule[.3pt]
+Nodos distintos o tareas desiguales & \ko{Espera el más rápido} & \ok{Se adapta solo} \\ \midrule[.3pt]
+Un nodo que se degrada & \ko{No reacciona} & \ok{Reparte menos a ese nodo} \\ \midrule[.3pt]
+Implementación & \ok{Simple} & Más compleja \\ \midrule[.3pt]
+Riesgo & Nodos en espera & Maestro como cuello de botella \\
+\bottomrule[.8pt]
+\end{tabular}
+\fuente{Criterios: OpenMP ARB (2021) y Pacheco \& Malensek (2022).}
+\note[item]{Este es el cuadro resumen de la comparación. Subraya: estático gana en simplicidad y pocos mensajes; dinámico gana cuando hay heterogeneidad o cargas impredecibles.}
+\end{frame}
+
+% ===================================================================== 10
+\begin{frame}{Paquetes según la velocidad}
+\begin{columns}[c,onlytextwidth]
+\column{.64\textwidth}
+\includegraphics[width=\linewidth,height=5cm,keepaspectratio]{../resultados/figuras_claro/tareas_nodo.png}
+\column{.33\textwidth}
+{\etq{dinamico}{Dinámico}}\\[2pt]\linea\\[4pt]
+{\small No se mide la velocidad: el nodo rápido \textbf{pide más veces}.}\\[12pt]
+{\etq{guiado}{Guiado}}\\[2pt]\linea\\[4pt]
+{\large $k=\mx\!\big(k_{\text{mín}},\lceil \tfrac{\text{restantes}}{f\cdot W}\rceil\big)$}\\[4pt]
+{\small Paquetes \textbf{grandes al inicio}, chicos al final.}
+\end{columns}
+\fuente{Equivale a las planificaciones dynamic y guided de OpenMP (OpenMP ARB, 2021).}
+\note[item]{Respuesta a la pregunta del tema: el maestro nunca conoce las velocidades. El nodo rápido termina antes, pide antes y recibe más paquetes. Las líneas punteadas son el reparto ideal proporcional a la velocidad.}
+\note[item]{Guiado: los primeros paquetes son grandes (menos mensajes) y se encogen al final para que nadie se quede con un paquete enorme cuando casi no hay trabajo.}
+\end{frame}
+
+% ===================================================================== 11
+\section{Evitar esperas}
+\newcommand{\estrategia}[4]{\linea\\[3pt]{\kalamL\fontsize{20}{22}\selectfont\color{#4}#1}\hspace{.4em}\textbf{#2}\\[2pt]{\small\color{suave}#3}}
+\begin{frame}{Estrategias para evitar nodos en espera}
+\begin{columns}[T,onlytextwidth]
+\column{.31\textwidth}\estrategia{1}{Pedir bajo demanda}{Nadie espera mientras haya cola.}{dinamico}\\[2pt]{\fontsize{8}{10}\selectfont\ok{En el proyecto}}
+\column{.31\textwidth}\estrategia{2}{Paquetes guiados}{Grandes al inicio, chicos al final.}{dinamico}\\[2pt]{\fontsize{8}{10}\selectfont\ok{En el proyecto}}
+\column{.31\textwidth}\estrategia{3}{Ponderar por velocidad}{Si $v_i$ es conocida y estable.}{dinamico}\\[2pt]{\fontsize{8}{10}\selectfont\ok{En el proyecto}}
+\end{columns}
+\vspace{.25cm}
+\begin{columns}[T,onlytextwidth]
+\column{.31\textwidth}\estrategia{4}{Tareas pesadas primero}{Ordenar de mayor a menor costo (LPT).}{trazo}\\[2pt]{\fontsize{8}{10}\selectfont\color{suave}Trabajo futuro}
+\column{.31\textwidth}\estrategia{5}{Prefetch}{Pedir el siguiente paquete antes de terminar.}{trazo}\\[2pt]{\fontsize{8}{10}\selectfont\color{suave}Trabajo futuro}
+\column{.31\textwidth}\estrategia{6}{Robo de trabajo}{El ocioso roba tareas a otro, sin maestro (Fernandes et al., 2024).}{trazo}\\[2pt]{\fontsize{8}{10}\selectfont\color{suave}Trabajo futuro}
+\end{columns}
+\note[item]{Las tres primeras las implementé y las medí. Las otras tres son estrategias de la literatura que quedan como trabajo futuro.}
+\note[item]{Prefetch y robo de trabajo se mencionan de nuevo en las conclusiones.}
+\end{frame}
+
+% ===================================================================== 12
+\section{Simulación}
+\begin{frame}{Simulación y diseño experimental}
+\begin{columns}[T,onlytextwidth]
+\column{.47\textwidth}\centering
+\begin{tikzpicture}[scale=.72,transform shape]
+  \node[nodo,minimum width=5.6cm,minimum height=3.9cm,draw=trazo,dashed] at (0,-.05) {};
+  \node[txtp,anchor=north west] at (-2.7,1.9) {tu laptop};
+  \node[nodo,draw=tinta,fill=tinta,text=papel] at (0,1.2) {\textbf{rank 0} · Maestro};
+  \foreach \i/\v/\c/\t in {0/1.0/dinamico/{rank 1 · v=1}, 1/1.0/dinamico/{rank 2 · v=1}, 2/0.5/ocre/{rank 3 · v=0.5}, 3/0.25/estatico/{rank 4 · v=0.25}}{
+    \node[nodo,minimum width=3.2cm] at (-.5,{.35-\i*.7}) {\scriptsize \t};
+    \fill[\c] (1.25,{.35-\i*.7-.1}) rectangle ++({1.1*\v},.2);
+  }
+\end{tikzpicture}
+\column{.5\textwidth}
+\footnotesize\renewcommand{\arraystretch}{1}\arrayrulecolor{regla}
+\begin{tabular}{@{}l@{\hspace{.6cm}}l@{}}
+\etq{suave}{En la realidad} & \etq{dinamico}{En la simulación}\\[2pt] \midrule[.5pt]
+Nodo & proceso MPI\\[1pt] \midrule[.3pt]
+Velocidad & factor $v$\\[1pt] \midrule[.3pt]
+Cómputo & \mono{sleep(c/v)}\\[1pt] \midrule[.3pt]
+Red lenta & \mono{--latencia-ms}\\[1pt] \midrule[.3pt]
+Nodo que se degrada & \mono{--degradar}
+\end{tabular}
+\end{columns}
+\vspace{6pt}\linea\\[3pt]
+{\etq{suave}{Escenarios medidos}}\\[2pt]
+{\small\color{estatico}1\;\color{tinta} nodos iguales \quad\color{estatico}2\;\color{tinta} nodos distintos ($v=1,1,0.5,0.25$) \quad\color{estatico}3\;\color{tinta} tamaño de paquete (1…60)\\
+\color{estatico}4\;\color{tinta} 1, 2, 4 y 8 trabajadores \quad\color{estatico}5\;\color{tinta} un nodo que se degrada}\\[3pt]
+{\fontsize{7}{8.6}\selectfont\color{suave}240 tareas · costo medio 10\,ms (log-normal) · semilla fija · mediana de 3–5 corridas · código en \mono{balanceo.py} (archivo aparte)}
+\note[item]{En una laptop todos los procesos son igual de rápidos, entonces simulo la heterogeneidad: cada trabajador tiene un factor de velocidad y tarda costo dividido entre velocidad. Con mpiexec -n 5 hay 1 maestro y 4 trabajadores.}
+\note[item]{Usar sleep hace que los resultados no dependan de cuántos núcleos tenga la laptop. También existe un modo real con carga de CPU.}
+\note[item]{Cinco escenarios, cada uno con una pregunta: ¿qué pasa con nodos iguales?, ¿con nodos distintos?, ¿cuál es el mejor tamaño de paquete?, ¿cómo escala?, ¿qué pasa si un nodo se degrada? Mismas tareas (semilla fija) para todas las estrategias.}
+\end{frame}
+
+% ===================================================================== 13
+\section{Resultados}
+\begin{frame}{Quién trabaja y quién espera}
+\begin{columns}[c,onlytextwidth]
+\column{.72\textwidth}
+\includegraphics[width=\linewidth,height=5.2cm,keepaspectratio]{../resultados/figuras_claro/gantt.png}
+\column{.27\textwidth}
+\etq{suave}{Utilización media}\\[2pt]\linea\\[6pt]
+\grande{estatico}{\utEstHet\,\%}\\[-2pt]{\fontsize{8}{10}\selectfont\color{suave}estático}\\[8pt]
+\grande{dinamico}{\utDinHet\,\%}\\[-2pt]{\fontsize{8}{10}\selectfont\color{suave}dinámico}
+\end{columns}
+\note[item]{Esta es la diapositiva más importante. Arriba, estático: el nodo 4 trabaja todo el tiempo y los demás están rayados, es decir, esperando.}
+\note[item]{Abajo, con dinámico, todos terminan casi al mismo tiempo, cerca de la línea punteada de tiempo ideal.}
+\end{frame}
+
+% ===================================================================== 14
+\begin{frame}{Tiempo total en dos escenarios}
+\centering
+\includegraphics[width=\textwidth,height=3.7cm,keepaspectratio]{../resultados/figuras_claro/tiempos.png}\\[4pt]
+\begin{columns}[T,onlytextwidth]
+\column{.3\textwidth}\centering\grande{dinamico}{\mejoraHet$\times$}\\[-3pt]{\fontsize{8}{10}\selectfont\color{suave}más rápido con nodos distintos}
+\column{.3\textwidth}\centering\grande{dinamico}{\mejoraDeg$\times$}\\[-3pt]{\fontsize{8}{10}\selectfont\color{suave}más rápido con un nodo degradado}
+\column{.3\textwidth}\centering{\kalamL\fontsize{22}{32}\selectfont\color{suave}\tEstHom\,s\,$\approx$\,\tDinHom\,s}\\[-3pt]{\fontsize{8}{10}\selectfont\color{suave}con nodos iguales casi empatan}
+\end{columns}
+\note[item]{Con nodos iguales estático y dinámico casi empatan: no hay nada que balancear. Con nodos distintos, el estático tarda \tEstHet{} s y el dinámico \tDinHet{} s.}
+\note[item]{A la derecha el caso más duro: un nodo baja de velocidad a mitad de la ejecución y nadie lo sabía de antemano. Ahí ni siquiera el estático ponderado ayudaría; solo el dinámico reacciona.}
+\end{frame}
+
+% ===================================================================== 15
+\begin{frame}{Tamaño del paquete}
+\begin{columns}[c,onlytextwidth]
+\column{.72\textwidth}
+\includegraphics[width=\linewidth,height=5.2cm,keepaspectratio]{../resultados/figuras_claro/chunk.png}
+\column{.27\textwidth}
+\etq{suave}{Mejor paquete}\\[2pt]\linea\\[4pt]
+\grande{dinamico}{\chunkMejor}\\[-2pt]{\fontsize{8}{10}\selectfont\color{suave}tareas $\rightarrow$ \tChunkMejor\,s}\\[10pt]
+\etq{suave}{Peor paquete}\\[2pt]\linea\\[4pt]
+\grande{estatico}{\chunkPeor}\\[-2pt]{\fontsize{8}{10}\selectfont\color{suave}tareas $\rightarrow$ \tChunkPeor\,s}
+\end{columns}
+\note[item]{Hay un compromiso: paquetes muy chicos generan muchos mensajes; paquetes muy grandes dejan a un nodo lento con demasiado trabajo.}
+\note[item]{Con paquete de 60 tareas, un solo nodo lento recibe un paquete enorme y el tiempo se dispara a más de 2 segundos, igual de malo que el estático.}
+\end{frame}
+
+% ===================================================================== 16
+\begin{frame}{Escalabilidad: más nodos}
+\begin{columns}[c,onlytextwidth]
+\column{.72\textwidth}
+\includegraphics[width=\linewidth,height=5.2cm,keepaspectratio]{../resultados/figuras_claro/escalabilidad.png}
+\column{.27\textwidth}
+\etq{suave}{Con 8 trabajadores}\\[2pt]\linea\\[6pt]
+\grande{dinamico}{\spDinOcho$\times$}\\[-2pt]{\fontsize{8}{10}\selectfont\color{suave}speedup dinámico}\\[8pt]
+\grande{estatico}{\spEstOcho$\times$}\\[-2pt]{\fontsize{8}{10}\selectfont\color{suave}speedup estático}
+\end{columns}
+\note[item]{Speedup contra un nodo rápido trabajando solo. El estático casi no mejora porque lo frena el nodo más lento; el dinámico se acerca al ideal.}
+\note[item]{Con 8 trabajadores el dinámico logra \spDinOcho$\times$ y el estático solo \spEstOcho$\times$.}
+\end{frame}
+
+% ===================================================================== 17
+\section{Cierre}
+\begin{frame}{Conclusiones y trabajo futuro}
+\begin{columns}[T,onlytextwidth]
+\column{.6\textwidth}
+\renewcommand{\arraystretch}{1}\arrayrulecolor{regla}
+\begin{tabular}{@{}>{\kalamL\fontsize{26}{28}\selectfont\color{estatico}}p{.9cm}p{7cm}@{}}
+1 & \textbf{Estático:} simple y barato, pero un nodo lento frena a todos (\tEstHet\,s).\\[8pt]\midrule[.4pt]
+2 & \textbf{Dinámico:} asigna paquetes a quien se desocupa, sin conocer velocidades (\tDinHet\,s).\\[8pt]\midrule[.4pt]
+3 & \textbf{El paquete importa:} ni muy chico ni muy grande; el guiado no siempre gana (\tGuiHet\,s).
+\end{tabular}
+\column{.36\textwidth}
+\etq{suave}{Limitaciones}\\[2pt]\linea\\[2pt]
+\begin{itemize}\setlength\itemsep{1pt}\footnotesize
+\item Nodos simulados (\mono{sleep}), sin red física
+\item Una sola laptop
+\item El maestro puede ser cuello de botella
+\end{itemize}\vspace{2pt}
+\etq{suave}{Trabajo futuro}\\[2pt]\linea\\[2pt]
+\begin{itemize}\setlength\itemsep{1pt}\footnotesize
+\item Prefetch con \mono{isend/irecv}
+\item Robo de trabajo sin maestro
+\item Probar en un cluster real
+\end{itemize}
+\end{columns}
+\note[item]{Tres ideas para cerrar: estático simple pero frágil; dinámico se adapta; y el tamaño del paquete es la perilla importante (el guiado no siempre gana porque su primer paquete grande puede caer en el nodo lento).}
+\note[item]{Regla práctica: si no conozco las velocidades o no son estables, dinámico. Si las conozco y las tareas son parejas, estático ponderado es más simple y barato.}
+\note[item]{Sé honesto con las limitaciones: la simulación es una abstracción; en un cluster real habría red, memoria y contención.}
+\end{frame}
+
+% ===================================================================== 18
+\begin{frame}{¿Preguntas? · Referencias}
+\begin{columns}[T,onlytextwidth]
+\column{.28\textwidth}
+{\kalamL\fontsize{21}{24}\selectfont\color{tinta}¿Preguntas?}\\[6pt]
+{\small\color{suave}Gracias por su atención}\\[10pt]
+{\fontsize{8}{11}\selectfont\color{estatico}Jared Méndez Valencia\\Daniel del Valle Andrade\\Johan Lezama Núñez\\Camila Serrano Trinidad}
+\column{.02\textwidth}
+\column{.68\textwidth}
+\fontsize{6.6}{8}\selectfont\setlength{\parindent}{-1.2em}\leftskip1.2em\raggedright
+Dalcin, L., \& Fang, Y.-L. L. (2021). mpi4py: Status update after 12 years of development. \emph{Computing in Science \& Engineering, 23}(4), 47–54. \url{https://doi.org/10.1109/MCSE.2021.3083216}\par\vspace{3pt}
+Fernandes, J. B., de Assis, Í. A. S., Martins, I. M. S., Barros, T., \& Xavier-de-Souza, S. (2024). \emph{Adaptive asynchronous work-stealing for distributed load-balancing in heterogeneous systems} [Preprint]. arXiv. \url{https://arxiv.org/abs/2401.04494}\par\vspace{3pt}
+Message Passing Interface Forum. (2023). \emph{MPI: A message-passing interface standard, version 4.1}. \url{https://www.mpi-forum.org/docs/mpi-4.1/mpi41-report/mpi41-report.htm}\par\vspace{3pt}
+OpenMP Architecture Review Board. (2021). \emph{OpenMP application programming interface, version 5.2}. \url{https://www.openmp.org/specifications/}\par\vspace{3pt}
+Pacheco, P. S., \& Malensek, M. (2022). \emph{An introduction to parallel programming} (2nd ed.). Morgan Kaufmann.\par\vspace{3pt}
+Rogowski, M., Aseeri, S., Keyes, D., \& Dalcin, L. (2023). mpi4py.futures: MPI-based asynchronous task execution for Python. \emph{IEEE Transactions on Parallel and Distributed Systems, 34}(2), 611–622.
+\end{columns}
+\note[item]{Todas las referencias son de 2021 en adelante, en formato APA 7.}
+\note[item]{Preguntas frecuentes: ¿por qué sleep? (reproducible y sin depender de núcleos); ¿por qué el guiado fue peor? (primer paquete grande en el nodo lento); ¿qué pasa si el maestro falla? (trabajo futuro).}
+\end{frame}
+
+\end{document}

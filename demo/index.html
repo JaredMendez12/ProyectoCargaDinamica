@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo en vivo de carga dinámica</title>
+<style>
+/* Idea de diseño: lista de pasos a la izquierda (cada paso es un comando real),
+   a la derecha la terminal, la escena animada con los intervalos reales y los subtítulos. */
+:root{
+  --papel:#ffffff; --tinta:#111111; --suave:#555555; --regla:#cfcfcf; --panel:#f2f2f2;
+  --estatico:#9B2335; --dinamico:#1F3A68; --guiado:#2E7D7A; --ocre:#B8860B;
+  --term:#101820; --termtxt:#d8e3ef; --verde:#7fd6a4;
+  --serif:"Times New Roman",Times,"Liberation Serif",serif;
+  --mono:Consolas,"Cascadia Mono","DejaVu Sans Mono",monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--serif);font-size:17px;line-height:1.35}
+.wrap{max-width:1280px;margin:0 auto;padding:0 16px 40px}
+header{padding:18px 0 8px;display:flex;flex-wrap:wrap;gap:10px 20px;align-items:flex-end;justify-content:space-between}
+.kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--suave)}
+h1{margin:2px 0 0;font-weight:400;font-size:32px;color:var(--dinamico);text-wrap:balance}
+#estado{font-size:14.5px;padding:5px 10px;border-radius:3px;border:1px solid var(--regla);background:var(--panel)}
+#estado.ok{border-color:var(--guiado);color:var(--guiado)}
+#estado.sim{border-color:var(--ocre);color:#7a5a00}
+.grid{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.etq{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--suave)}
+#lista{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px}
+#lista button{width:100%;text-align:left;display:grid;grid-template-columns:26px 1fr;gap:2px 8px;padding:8px 10px;border:1px solid var(--regla);border-radius:4px;background:var(--papel);cursor:pointer;font-family:inherit;font-size:15.5px;color:var(--tinta)}
+#lista button:hover{background:#fafafa}
+#lista button[aria-current="true"]{border-color:var(--dinamico);background:#f4f7fc;box-shadow:inset 3px 0 0 var(--dinamico)}
+#lista .n{font-size:20px;color:var(--suave);grid-row:1/3}
+#lista .hecho .n{color:var(--guiado)}
+#lista code{font-family:var(--mono);font-size:11.5px;color:var(--suave);word-break:break-all;grid-column:2}
+#lista .t{font-weight:700}
+button{font-family:inherit;font-size:16px;color:var(--tinta)}
+.bt{border:1px solid #999;background:var(--papel);border-radius:3px;padding:8px 13px;cursor:pointer}
+.bt:hover{background:#fafafa;border-color:#666}
+.bt:disabled{opacity:.45;cursor:default}
+.bt.prim{background:var(--dinamico);border-color:var(--dinamico);color:#fff;min-width:170px}
+.bt.prim:hover:not(:disabled){background:#2a4a80}
+button:focus-visible,select:focus-visible{outline:2px solid var(--dinamico);outline-offset:2px}
+select{font-family:inherit;font-size:16px;padding:6px}
+.fila{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#term{background:var(--term);color:var(--termtxt);font-family:var(--mono);font-size:13.5px;line-height:1.45;border-radius:5px;padding:10px 14px;height:260px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+#term .p{color:var(--verde)}
+#term .e{color:#ff9aa8}
+#term .c{display:inline-block;width:8px;height:15px;background:var(--termtxt);vertical-align:-2px;animation:parp 1s steps(1) infinite}
+@keyframes parp{50%{opacity:0}}
+.card{border:1px solid var(--regla);border-radius:4px;background:var(--papel)}
+#escWrap{margin-top:12px;padding:6px}
+canvas{display:block}
+#sub{margin-top:10px;padding:12px 16px;border-left:4px solid var(--dinamico);background:var(--panel);font-size:23px;line-height:1.3;min-height:92px;text-wrap:pretty;transition:opacity .25s}
+.ctrl{margin-top:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:12px}
+.tile{padding:9px 12px}
+.tile .l{font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--suave)}
+.tile .n{font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
+.hist{margin-top:12px;padding:10px 14px}
+.hist h2{margin:0 0 6px;font-weight:400;font-size:19px;color:var(--dinamico)}
+.fh{display:grid;grid-template-columns:minmax(150px,230px) 1fr 120px;gap:10px;align-items:center;font-size:15px;padding:2px 0}
+.pista{height:16px;background:#f4f4f4;border-radius:2px;position:relative}
+.pista i{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
+.val{text-align:right;font-variant-numeric:tabular-nums;color:var(--suave)}
+.nota{font-size:13.5px;color:var(--suave);margin:8px 0 0}
+body.pres #sub{font-size:30px}
+body.pres #term{font-size:17px;height:240px}
+@media (max-width:560px){#sub{font-size:19px}.fh{grid-template-columns:110px 1fr 84px;font-size:14px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <div class="kicker">Cómputo paralelo distribuido · demo en vivo</div>
+    <h1>Ejecuta cada comando y míralo trabajar</h1>
+  </div>
+  <div id="estado" role="status">Buscando el servidor…</div>
+</header>
+
+<div class="grid">
+  <aside aria-label="Pasos de la demo">
+    <div class="etq">Pasos</div>
+    <ol id="lista"></ol>
+    <p class="nota">Enter o espacio ejecuta el paso elegido. Flechas ↑ ↓ cambian de paso. P activa el modo proyector.</p>
+  </aside>
+
+  <main>
+    <div class="fila" style="margin-bottom:10px">
+      <button class="bt prim" id="ejec">▶ Ejecutar paso</button>
+      <button class="bt" id="sig">Siguiente paso</button>
+      <button class="bt" id="rep">Repetir animación</button>
+      <button class="bt" id="auto">Presentación automática</button>
+      <label class="fila" style="gap:6px"><span class="etq">Ritmo</span>
+        <select id="ritmo" aria-label="Ritmo de la animación">
+          <option value="cine" selected>Cinemática (≈ 10 s)</option>
+          <option value="real">Tiempo real</option>
+        </select></label>
+      <button class="bt" id="pres" style="margin-left:auto;font-size:14px">Modo proyector</button>
+    </div>
+    <div id="term" aria-label="Terminal" aria-live="polite"><span class="p">$ </span><span class="c"></span></div>
+    <div class="card" id="escWrap"><canvas id="esc" role="img" aria-label="Animación de los nodos con los datos reales de la ejecución"></canvas></div>
+    <div id="sub" aria-live="polite">Elige un paso y pulsa Ejecutar. Se corre el comando de verdad y después se anima lo que hizo cada nodo.</div>
+    <div class="tiles" id="tiles">
+      <div class="card tile"><div class="l">Tiempo total</div><div class="n" id="m-T">–</div></div>
+      <div class="card tile"><div class="l">Tiempo ideal</div><div class="n" id="m-I">–</div></div>
+      <div class="card tile"><div class="l">Eficiencia</div><div class="n" id="m-E">–</div></div>
+      <div class="card tile"><div class="l">Utilización</div><div class="n" id="m-U">–</div></div>
+      <div class="card tile"><div class="l">Mensajes</div><div class="n" id="m-M">–</div></div>
+      <div class="card tile"><div class="l">Speedup</div><div class="n" id="m-S">–</div></div>
+    </div>
+    <section class="card hist" aria-label="Resultados de los pasos ejecutados">
+      <h2>Lo que llevamos</h2>
+      <div id="hist"><p class="nota" style="margin:0">Aquí aparecerá el tiempo de cada paso que ejecutes.</p></div>
+    </section>
+  </main>
+</div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s);};
+var COLORS=['#1F3A68','#2E7D7A','#B8860B','#9B2335','#6B4E8A','#5B6770','#3d7a3d','#8a5a44'];
+var HET='1,1,0.5,0.25', IGU='1,1,1,1', DEG='2:0.3:0.25';
+function s2(x){return x.toFixed(2)+' s';}
+function pc(x){return Math.round(x*100)+' %';}
+
+/* ---------- pasos de la demo ---------- */
+var PASOS=[
+ {titulo:'Nodos distintos · estático',grupo:'het',args:{estrategia:'estatico',velocidades:HET},
+  subs:function(r){return [
+   {p:0,t:'El maestro reparte todo de golpe: el mismo número de tareas para cada nodo. Después nadie vuelve a pedir nada.'},
+   {p:.1,t:'Los nodos 1 y 2 son cuatro veces más rápidos que el nodo 4 (v = 1 contra 0.25).'},
+   {p:r.primerFin+.02,t:'Los nodos rápidos ya terminaron y quedan ociosos (rayado), esperando al más lento.'},
+   {p:.97,t:'Termina el último nodo: '+s2(r.T)+'. Utilización de solo '+pc(r.ut)+'; el ideal era '+s2(r.ideal)+'.'}];}},
+ {titulo:'Nodos distintos · dinámico',grupo:'het',args:{estrategia:'dinamico',chunk:8,velocidades:HET},
+  subs:function(r,ref){return [
+   {p:0,t:'Ahora el maestro guarda una cola y entrega paquetes de 8 tareas a quien pida.'},
+   {p:.2,t:'Cada nodo que se desocupa envía PEDIR y recibe otro paquete. El rápido pide muchas veces; el lento, pocas.'},
+   {p:.6,t:'Todos trabajan casi todo el tiempo: casi no hay rayado.'},
+   {p:.97,t:ref?'Terminan juntos en '+s2(r.T)+', contra '+s2(ref.T)+' del estático: '+(ref.T/r.T).toFixed(1)+'× más rápido. Utilización '+pc(r.ut)+'.':'Terminan juntos en '+s2(r.T)+'. Utilización '+pc(r.ut)+'.'}];}},
+ {titulo:'Paquete demasiado grande',grupo:'het',args:{estrategia:'dinamico',chunk:60,velocidades:HET},
+  subs:function(r){return [
+   {p:0,t:'Con paquetes de 60 tareas, el dinámico vuelve a repartir casi como el estático.'},
+   {p:.5,t:'Un nodo lento recibe un paquete enorme y los demás se quedan esperando.'},
+   {p:.97,t:'Tiempo '+s2(r.T)+'. El tamaño del paquete importa: ni muy chico ni muy grande.'}];}},
+ {titulo:'Red lenta (latencia 15 ms)',grupo:'het',args:{estrategia:'dinamico',chunk:1,latencia_ms:15,velocidades:HET},
+  subs:function(r){return [
+   {p:0,t:'Paquetes de una sola tarea y 15 ms de latencia por petición: casi todo se va en mensajes.'},
+   {p:.5,t:'Los huecos rayados entre las barras son tiempo esperando a la red (PEDIR y TRABAJO).'},
+   {p:.97,t:'Hubo '+r.M+' mensajes y el tiempo subió a '+s2(r.T)+'. Más mensajes, más overhead de comunicación.'}];}},
+ {titulo:'Nodos iguales · estático',grupo:'igu',args:{estrategia:'estatico',velocidades:IGU},
+  subs:function(r){return [
+   {p:0,t:'Ahora los cuatro nodos tienen la misma velocidad.'},
+   {p:.5,t:'Con el reparto estático cada quien recibe lo mismo y termina a la vez: nadie espera.'},
+   {p:.97,t:'Tiempo '+s2(r.T)+'. Aquí el estático funciona bien y es más simple.'}];}},
+ {titulo:'Nodos iguales · dinámico',grupo:'igu',args:{estrategia:'dinamico',chunk:8,velocidades:IGU},
+  subs:function(r,ref){return [
+   {p:0,t:'Mismos nodos iguales, ahora con reparto dinámico.'},
+   {p:.6,t:'Se ve casi igual que el estático: no había nada que balancear.'},
+   {p:.97,t:'Tiempo '+s2(r.T)+(ref?' contra '+s2(ref.T)+' del estático':'')+'. El dinámico solo agrega mensajes ('+r.M+').'}];}},
+ {titulo:'Un nodo se degrada · estático',grupo:'deg',args:{estrategia:'estatico',velocidades:IGU,degradar:DEG},
+  subs:function(r){return [
+   {p:0,t:'Los cuatro nodos son iguales, pero a los 0.3 s el nodo 2 baja al 25 % de su velocidad. El maestro no lo sabía.'},
+   {p:.4,t:'El reparto estático ya está decidido: el nodo 2 sigue con todo su lote, ahora más lento.'},
+   {p:.97,t:'Todos esperan al nodo 2: '+s2(r.T)+'.'}];}},
+ {titulo:'Un nodo se degrada · dinámico',grupo:'deg',args:{estrategia:'dinamico',chunk:8,velocidades:IGU,degradar:DEG},
+  subs:function(r,ref){return [
+   {p:0,t:'Mismo problema, ahora con reparto dinámico.'},
+   {p:.4,t:'Cuando el nodo 2 se vuelve lento, pide menos paquetes y los demás compensan.'},
+   {p:.97,t:ref?'Termina en '+s2(r.T)+', contra '+s2(ref.T)+' del estático: '+(ref.T/r.T).toFixed(1)+'× más rápido.':'Termina en '+s2(r.T)+'.'}];}},
+ {titulo:'Diagnóstico del clúster',grupo:'diag',diag:true,args:{}}
+];
+function cmdTxt(a,diag){
+  if(diag)return 'mpiexec -n 3 python cluster_diagnostico.py';
+  var n=a.velocidades.split(',').length+1;
+  return 'mpiexec -n '+n+' python balanceo.py --estrategia '+a.estrategia+(a.chunk?' --chunk '+a.chunk:'')+
+    (a.latencia_ms?' --latencia-ms '+a.latencia_ms:'')+' --velocidades '+a.velocidades+(a.degradar?' --degradar '+a.degradar:'');
+}
+PASOS.forEach(function(p){p.cmd=cmdTxt(p.args,p.diag);});
+
+/* ---------- estado ---------- */
+var servidor=false, cur=0, RUN=null, DIAG=null, t=0, playing=false, busy=false, autoRun=false, pres=false;
+var historia=[], escala={}, done={}, lastTs=0, subIdx=-2, fin=false, gen=0;
+var sleep=function(ms){return new Promise(function(r){setTimeout(r,ms);});};
+
+/* ---------- lista de pasos ---------- */
+function buildLista(){
+  var h='';
+  PASOS.forEach(function(p,i){
+    h+='<li><button data-i="'+i+'" aria-current="'+(i===cur)+'" class="'+(done[i]?'hecho':'')+'"><span class="n">'+(i+1)+'</span><span class="t">'+p.titulo+'</span><code>'+p.cmd+'</code></button></li>';
+  });
+  $('#lista').innerHTML=h;
+}
+
+/* ---------- terminal ---------- */
+var term=$('#term');
+function termReset(){term.innerHTML='';}
+function termAdd(html){var s=document.createElement('span');s.innerHTML=html;term.appendChild(s);term.scrollTop=term.scrollHeight;}
+function esc(x){return x.replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+async function tipear(cmd,mi){
+  termReset();termAdd('<span class="p">$ </span>');
+  var out=document.createElement('span');term.appendChild(out);
+  var cur2=document.createElement('span');cur2.className='c';term.appendChild(cur2);
+  for(var i=0;i<cmd.length;i++){
+    if(mi!==gen)return false;
+    out.textContent+=cmd[i];await sleep(cmd.length>80?10:16);
+  }
+  await sleep(250);
+  cur2.remove();termAdd('\n');
+  return true;
+}
+async function imprimir(texto,mi){
+  var lineas=texto.replace(/\s+$/,'').split('\n');
+  for(var i=0;i<lineas.length;i++){
+    if(mi!==gen)return;
+    termAdd(esc(lineas[i])+'\n');await sleep(28);
+  }
+}
+
+/* ---------- simulación de respaldo (si no hay servidor) ---------- */
+function simular(a){
+  var vel=a.velocidades.split(',').map(Number),W=vel.length,N=a.tareas||240,L=(a.latencia_ms||0)/1000;
+  var seed=42,rn=function(){seed|=0;seed=seed+0x6D2B79F5|0;var q=Math.imul(seed^seed>>>15,1|seed);q=q+Math.imul(q^q>>>7,61|q)^q;return((q^q>>>14)>>>0)/4294967296;};
+  var costs=[],i,sg=0.8;
+  for(i=0;i<N;i++){var u1=Math.max(rn(),1e-9),u2=rn();costs.push(0.010*Math.exp(sg*Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2)-sg*sg/2));}
+  var dg=a.degradar?a.degradar.split(':').map(Number):null;
+  function fin(t0,work,w){
+    var v=vel[w];
+    if(dg&&dg[0]===w+1){
+      if(t0>=dg[1])return t0+work/dg[2];
+      var d=(dg[1]-t0)*v;if(d>=work)return t0+work/v;return dg[1]+(work-d)/dg[2];
+    }
+    return t0+work/v;
+  }
+  var ints=[];for(i=0;i<W;i++)ints.push([]);var msgs=0,pk=0;
+  function run(w,st,ids){var c=st;ids.forEach(function(id){c=fin(c,costs[id],w);});ints[w].push([st,c,ids.length]);return c;}
+  if(a.estrategia==='estatico'){
+    var base=Math.floor(N/W),rem=N-base*W,p=0;
+    for(i=0;i<W;i++){var k=base+(i<rem?1:0),ids=[];for(var j=0;j<k;j++)ids.push(p++);run(i,L,ids);msgs++;}
+  }else{
+    var reqs=[],next=0;for(i=0;i<W;i++)reqs.push({arr:L,w:i});
+    while(reqs.length){
+      reqs.sort(function(x,y){return x.arr-y.arr||x.w-y.w;});var q=reqs.shift();msgs+=2;
+      if(next<N){
+        var kk=a.estrategia==='guiado'?Math.max(a.chunk||1,Math.ceil((N-next)/(2*W))):Math.min(a.chunk||4,N-next),ids2=[];
+        for(var j2=0;j2<kk;j2++)ids2.push(next++);pk++;
+        var e=run(q.w,q.arr+L,ids2);reqs.push({arr:e+L,w:q.w});
+      }
+    }
+  }
+  var T=0,tot=costs.reduce(function(x,y){return x+y;},0),sv=vel.reduce(function(x,y){return x+y;},0),det=[],sb=0;
+  for(i=0;i<W;i++){var oc=0,tk=0;ints[i].forEach(function(s){oc+=s[1]-s[0];tk+=s[2];T=Math.max(T,s[1]);});sb+=oc;det.push({rank:i+1,velocidad:vel[i],tareas:tk,ocupado:oc,intervalos:ints[i]});}
+  return {estrategia:a.estrategia,tareas:N,makespan:T,t_ideal:tot/sv,t_1_nodo:tot/Math.max.apply(null,vel),speedup:(tot/Math.max.apply(null,vel))/T,
+    eficiencia_balanceo:(tot/sv)/T,utilizacion_media:sb/(W*T),mensajes:msgs,paquetes:pk,trabajadores_detalle:det,velocidades:vel};
+}
+
+/* ---------- convertir resultado en "run" animable ---------- */
+function armarRun(res,paso){
+  var W=res.trabajadores_detalle.length,workers=res.trabajadores_detalle.map(function(w){return {rank:w.rank,v:w.velocidad,ints:w.intervalos||[]};});
+  var T=res.makespan,tasks=[],i,N=res.tareas,statico=res.estrategia.indexOf('estatico')===0;
+  var flat=[];
+  workers.forEach(function(w,wi){w.ints.forEach(function(it){flat.push({w:wi,a:it[0],b:it[1],k:it[2]});});});
+  if(statico){flat.sort(function(x,y){return x.w-y.w;});}else{flat.sort(function(x,y){return x.a-y.a;});}
+  var id=0;
+  flat.forEach(function(f){
+    for(var j=0;j<f.k;j++){
+      tasks.push({w:f.w,send:statico?0:f.a,t0:f.a+(j/f.k)*(f.b-f.a),t1:f.a+((j+1)/f.k)*(f.b-f.a)});id++;
+    }
+  });
+  while(tasks.length<N)tasks.push({w:0,send:T,t0:T,t1:T});
+  /* pulsos de mensajes derivados de los intervalos reales */
+  var pulses=[];
+  workers.forEach(function(w,wi){
+    var prev=0;
+    w.ints.forEach(function(it,ix){
+      if(!statico)pulses.push({t0:prev,w:wi,type:'pedir',end:false});
+      pulses.push({t0:it[0],w:wi,type:'work',end:true});
+      prev=it[1];
+    });
+    if(!statico)pulses.push({t0:prev,w:wi,type:'pedir',end:false},{t0:prev,w:wi,type:'fin',end:true,delay:true});
+  });
+  var primerFin=1;
+  workers.forEach(function(w){var e=0;w.ints.forEach(function(it){e=Math.max(e,it[1]);});primerFin=Math.min(primerFin,e/T);});
+  return {T:T,ideal:res.t_ideal,t1:res.t_1_nodo,sp:res.speedup,ef:res.eficiencia_balanceo,ut:res.utilizacion_media,M:res.mensajes,
+          N:N,W:W,workers:workers,tasks:tasks,pulses:pulses,primerFin:primerFin,statico:statico,estrategia:res.estrategia,
+          ref:null,grupo:paso.grupo,vel:workers.map(function(w){return w.v;})};
+}
+
+/* ---------- ejecutar un paso ---------- */
+async function ejecutar(i){
+  if(busy)return;
+  busy=true;gen++;var mi=gen;cur=i;buildLista();setBotones();
+  playing=false;fin=false;subIdx=-2;
+  var paso=PASOS[i];
+  RUN=null;DIAG=null;limpiarTiles();
+  $('#sub').textContent='Ejecutando…';
+  var ok=await tipear(paso.cmd,mi);if(!ok){busy=false;setBotones();return;}
+  termAdd('<span style="color:#9fb0c3">ejecutando…</span>\n');
+  var resp=null;
+  try{
+    if(servidor){
+      var r=await fetch(paso.diag?'/api/diagnostico':'/api/ejecutar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(paso.args)});
+      resp=await r.json();
+    }else if(paso.diag){
+      resp={ok:false,error:'El diagnóstico del clúster necesita el servidor: python servidor_demo.py'};
+    }else{
+      await sleep(600);var sim=simular(paso.args);
+      resp={ok:true,resultado:sim,salida:'(simulación en el navegador, sin MPI)\n=== '+sim.estrategia+' | '+sim.velocidades.length+' trabajadores | '+sim.tareas+' tareas ===\nTiempo total (makespan): '+sim.makespan.toFixed(3)+' s   ideal: '+sim.t_ideal.toFixed(3)+' s\nSpeedup: '+sim.speedup.toFixed(2)+'x   utilización media: '+(100*sim.utilizacion_media).toFixed(1)+' %\nPaquetes: '+sim.paquetes+'   mensajes: '+sim.mensajes};
+    }
+  }catch(e){resp={ok:false,error:'No pude hablar con el servidor: '+e.message};}
+  if(mi!==gen){busy=false;return;}
+  if(!resp.ok){
+    termAdd('<span class="e">'+esc(resp.error||'error')+'</span>\n');
+    $('#sub').textContent='No se pudo ejecutar este paso. Revisa el mensaje de la terminal.';
+    busy=false;setBotones();return;
+  }
+  await imprimir(resp.salida,mi);
+  if(mi!==gen){busy=false;return;}
+  if(paso.diag){
+    DIAG=parseDiag(resp.salida);t=0;playing=true;
+    $('#sub').textContent=DIAG.length?'Cada laptop (rank) se identifica por su IP. El maestro mide la latencia de ida y vuelta a cada una, y una prueba de CPU da la velocidad relativa v. Con v y la latencia se decide el tamaño del paquete.':'Diagnóstico terminado.';
+    done[i]=true;busy=false;buildLista();setBotones();
+    if(autoRun)setTimeout(function(){if(autoRun)siguiente(true);},5500);
+    return;
+  }
+  RUN=armarRun(resp.resultado,paso);
+  var ref=null;
+  for(var h=historia.length-1;h>=0;h--)if(historia[h].grupo===paso.grupo&&historia[h].estatico){ref=historia[h];break;}
+  RUN.ref=ref;
+  escala[paso.grupo]=Math.max(escala[paso.grupo]||0,RUN.T,ref?ref.T:0);
+  RUN.axis=escala[paso.grupo]*1.04;
+  RUN.subs=paso.subs(RUN,ref);
+  t=0;playing=true;busy=false;setBotones();
+}
+function terminar(){
+  fin=true;playing=false;
+  var paso=PASOS[cur];done[cur]=true;buildLista();
+  var h={titulo:paso.titulo,grupo:paso.grupo,T:RUN.T,ut:RUN.ut,estatico:RUN.estrategia.indexOf('estatico')===0,idx:cur};
+  historia=historia.filter(function(x){return x.idx!==cur;});historia.push(h);historia.sort(function(a,b){return a.idx-b.idx;});
+  buildHist();
+  countUp('#m-T',RUN.T,function(v){return s2(v);});
+  countUp('#m-I',RUN.ideal,function(v){return s2(v);});
+  countUp('#m-E',RUN.ef*100,function(v){return Math.round(v)+' %';});
+  countUp('#m-U',RUN.ut*100,function(v){return Math.round(v)+' %';});
+  countUp('#m-M',RUN.M,function(v){return String(Math.round(v));});
+  countUp('#m-S',RUN.sp,function(v){return v.toFixed(2)+'×';});
+  setBotones();
+  if(autoRun)setTimeout(function(){if(autoRun)siguiente(true);},3800);
+}
+function countUp(sel,to,fm){
+  var el=$(sel),t0=performance.now();
+  (function f(n){var k=Math.min(1,(n-t0)/700);el.textContent=fm(to*k*(2-k));if(k<1)requestAnimationFrame(f);})(t0);
+}
+function limpiarTiles(){['T','I','E','U','M','S'].forEach(function(k){$('#m-'+k).textContent='–';});}
+function buildHist(){
+  var mx=0;historia.forEach(function(h){mx=Math.max(mx,h.T);});
+  var s='';
+  historia.forEach(function(h){
+    s+='<div class="fh"><span>'+h.titulo+'</span><span class="pista"><i style="width:'+(h.T/mx*100).toFixed(1)+'%;background:'+(h.estatico?'var(--estatico)':'var(--dinamico)')+'"></i></span><span class="val">'+s2(h.T)+' · '+pc(h.ut)+'</span></div>';
+  });
+  $('#hist').innerHTML=s+'<p class="nota">Rojo: reparto estático. Azul: dinámico. A la derecha, tiempo total y utilización de los nodos.</p>';
+}
+function parseDiag(txt){
+  var out=[];
+  txt.split('\n').forEach(function(l){
+    var m=l.match(/^\s*(\d+)\s+(\S+)\s+(\S+)\s+(\S+)\s+([\d.]+)\s+([\d.]+)\s+(si|no)/);
+    if(m)out.push({rank:+m[1],host:m[2],ip:m[3],rtt:m[4],v:m[6],gpu:m[7]==='si'});
+  });
+  return out;
+}
+
+/* ---------- dibujo ---------- */
+var cv=$('#esc'),ctx=cv.getContext('2d'),wrap=$('#escWrap'),pat=null;
+var FONT='"Times New Roman",Times,"Liberation Serif",serif';
+function txt(s,x,y,size,col,al,bold){ctx.font=(bold?'bold ':'')+size+'px '+FONT;ctx.fillStyle=col;ctx.textAlign=al||'left';ctx.textBaseline='alphabetic';ctx.fillText(s,x,y);}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();}
+function makePat(){var c=document.createElement('canvas');c.width=c.height=8;var g=c.getContext('2d');g.fillStyle='#f4f4f4';g.fillRect(0,0,8,8);g.strokeStyle='#b4b4b4';g.lineWidth=1;g.beginPath();g.moveTo(-1,9);g.lineTo(9,-1);g.moveTo(-1,1);g.lineTo(1,-1);g.moveTo(7,9);g.lineTo(9,7);g.stroke();return ctx.createPattern(c,'repeat');}
+function setup(cw,H){
+  var dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(cw*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(cw*dpr);cv.height=Math.round(H*dpr);pat=null;}
+  cv.style.width=cw+'px';cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,H);if(!pat)pat=makePat();
+}
+function niceStep(ax){var c=[.05,.1,.2,.25,.5,1,2,5];for(var i=0;i<c.length;i++)if(ax/c[i]<=8)return c[i];return 10;}
+
+function drawVacio(cw){
+  setup(cw,300);
+  txt('Elige un paso de la lista y pulsa «Ejecutar paso».',cw/2,140,22,'#555','center');
+  txt('Se corre el comando de verdad y aquí se anima lo que hizo cada nodo.',cw/2,172,16,'#777','center');
+}
+function drawDiag(cw){
+  var n=DIAG.length,small=cw<560,fs=small?12:14.5;
+  var H=small?330:300;setup(cw,H);
+  var sw={x:cw/2-70,y:16,w:140,h:34};
+  ctx.fillStyle='#111';rr(sw.x,sw.y,sw.w,sw.h,4);ctx.fill();txt('switch / router',cw/2,sw.y+22,fs,'#fff','center',true);
+  var cols=Math.min(n,small?2:4),rows=Math.ceil(n/cols),bw=Math.min(190,(cw-30)/cols-12),bh=small?112:120;
+  var now=performance.now()/1000;
+  for(var i=0;i<n;i++){
+    var d=DIAG[i],c=i%cols,r=Math.floor(i/cols);
+    var x=cw/2-(cols*(bw+12)-12)/2+c*(bw+12),y=small?90+r*(bh+16):120+r*(bh+16),col=COLORS[i%COLORS.length];
+    ctx.strokeStyle='#999';ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(cw/2,sw.y+sw.h);ctx.lineTo(x+bw/2,y);ctx.stroke();
+    var p=((now*0.6+i*0.22)%1);
+    var px=cw/2+(x+bw/2-cw/2)*p,py=sw.y+sw.h+(y-sw.y-sw.h)*p;
+    ctx.fillStyle=i===0?'#555':'#9B2335';ctx.beginPath();ctx.arc(px,py,4.5,0,7);ctx.fill();
+    ctx.fillStyle='#fff';ctx.strokeStyle=col;ctx.lineWidth=2;rr(x,y,bw,bh,5);ctx.fill();ctx.stroke();
+    txt(d.rank===0?'rank 0 · maestro':'rank '+d.rank,x+bw/2,y+fs+4,fs,col,'center',true);
+    txt(d.host,x+bw/2,y+fs*2+8,fs-1,'#555','center');
+    txt(d.ip,x+bw/2,y+fs*3+10,fs-1,'#2E7D7A','center',true);
+    txt('v = '+d.v+(d.gpu?'  ·  GPU':''),x+bw/2,y+fs*4+12,fs-1,'#111','center');
+    txt(d.rank===0?'—':'RTT '+d.rtt+' ms',x+bw/2,y+fs*5+14,fs-1,'#555','center');
+  }
+}
+function drawRun(cw){
+  var r=RUN,W=r.W,N=r.N,small=cw<560,fs=(small?11.5:13.5)*(pres?1.2:1),pad=14,mw=small?96:150;
+  var gx=pad+mw+14,gw=cw-pad-gx;
+  var cols=Math.max(8,Math.floor(gw/(small?8:11))),cell=gw/cols,rows=Math.ceil(N/cols),gy=pad+fs+8,gh=rows*cell;
+  var mh=Math.max(gh+fs+8,small?92:84),lanesTop=pad+mh+fs+16,barH=pres?30:24,laneH=fs+6+barH+12;
+  var axisY=lanesTop+W*laneH+2,H=Math.ceil(axisY+fs*2+34+(small?fs+6:0));
+  setup(cw,H);
+  var x0=pad+22,x1=cw-pad,busX=pad+8,AX=r.axis,i,id;
+  function tx(s){return x0+Math.min(s,AX)/AX*(x1-x0);}
+  function barY(k){return lanesTop+k*laneH+fs+6;}
+  function cy(k){return barY(k)+barH/2;}
+  /* maestro */
+  ctx.lineWidth=1.5;ctx.strokeStyle='#111';ctx.fillStyle='#fff';rr(pad,pad,mw,mh,4);ctx.fill();ctx.stroke();
+  txt('MAESTRO',pad+mw/2,pad+fs+4,fs,'#111','center',true);txt('rank 0',pad+mw/2,pad+fs*2+6,fs-1,'#555','center');
+  var pend=0,sent=0;
+  for(id=0;id<N;id++)if(t<r.tasks[id].send)pend++;
+  var rate=r.T/ (r.dur||10),life=Math.max(.55*rate,0.012);
+  r.pulses.forEach(function(m){var st=m.end?m.t0-life+(m.delay?life:0):m.t0;if(st<=t)sent++;});
+  txt('En cola: '+pend,pad+8,pad+fs*3+14,fs,'#1F3A68','left',true);txt('Mensajes: '+sent,pad+8,pad+fs*4+18,fs,'#555','left');
+  /* cuadrícula */
+  txt(small?'Tareas':'Tareas (cada cuadro es una tarea)',gx,pad+fs,fs,'#555','left');
+  var lx=cw-pad,leg=small?[['pend.','#fff','#bbb'],['asig.','rgba(31,58,104,.25)',null],['lista','#1F3A68',null]]:[['pendiente','#fff','#bbb'],['asignada','rgba(31,58,104,.25)',null],['terminada','#1F3A68',null]];
+  for(i=leg.length-1;i>=0;i--){ctx.font=(fs-1)+'px '+FONT;var wl=ctx.measureText(leg[i][0]).width;txt(leg[i][0],lx,pad+fs,fs-1,'#555','right');lx-=wl+6;ctx.fillStyle=leg[i][1];ctx.fillRect(lx-fs+2,pad+3,fs-2,fs-2);if(leg[i][2]){ctx.strokeStyle=leg[i][2];ctx.lineWidth=1;ctx.strokeRect(lx-fs+2.5,pad+3.5,fs-3,fs-3);}lx-=fs+12;}
+  for(id=0;id<N;id++){
+    var tk=r.tasks[id],cx=gx+(id%cols)*cell,cyy=gy+Math.floor(id/cols)*cell,col=COLORS[tk.w%COLORS.length],ins=Math.max(.6,cell*.1),cs=cell-ins*2;
+    if(t<tk.send){ctx.fillStyle='#fff';ctx.fillRect(cx+ins,cyy+ins,cs,cs);ctx.strokeStyle='#c4c4c4';ctx.lineWidth=1;ctx.strokeRect(cx+ins+.5,cyy+ins+.5,cs-1,cs-1);}
+    else if(t<tk.t0){ctx.globalAlpha=.28;ctx.fillStyle=col;ctx.fillRect(cx+ins,cyy+ins,cs,cs);ctx.globalAlpha=1;}
+    else if(t<tk.t1){ctx.fillStyle=col;ctx.fillRect(cx+ins,cyy+ins,cs,cs);ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.strokeRect(cx+ins,cyy+ins,cs,cs);}
+    else{ctx.fillStyle=col;ctx.fillRect(cx+ins,cyy+ins,cs,cs);}
+  }
+  /* bus */
+  ctx.strokeStyle='#cfcfcf';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(busX,pad+mh);ctx.lineTo(busX,cy(W-1));for(i=0;i<W;i++){ctx.moveTo(busX,cy(i));ctx.lineTo(x0-3,cy(i));}ctx.stroke();
+  /* marcas: ideal, referencia (estático) y fin */
+  var yMark=lanesTop-4;
+  ctx.setLineDash([5,4]);ctx.lineWidth=1.5;
+  ctx.strokeStyle='#2E7D7A';ctx.beginPath();ctx.moveTo(tx(r.ideal),yMark);ctx.lineTo(tx(r.ideal),axisY);ctx.stroke();
+  txt('ideal '+s2(r.ideal),tx(r.ideal)-4,yMark-3,fs-1,'#2E7D7A','right',true);
+  if(r.ref){ctx.strokeStyle='#9B2335';ctx.beginPath();ctx.moveTo(tx(r.ref.T),yMark);ctx.lineTo(tx(r.ref.T),axisY);ctx.stroke();txt('estático '+s2(r.ref.T),tx(r.ref.T)-4,yMark-3,fs-1,'#9B2335','right',true);}
+  if(t>=r.T-1e-6&&!r.ref){ctx.strokeStyle='#111';ctx.beginPath();ctx.moveTo(tx(r.T),yMark);ctx.lineTo(tx(r.T),axisY);ctx.stroke();txt('fin '+s2(r.T),tx(r.T)+4,yMark-3,fs-1,'#111','left',true);}
+  else if(t>=r.T-1e-6){ctx.strokeStyle='#111';ctx.beginPath();ctx.moveTo(tx(r.T),yMark);ctx.lineTo(tx(r.T),axisY);ctx.stroke();txt('fin '+s2(r.T),tx(r.T)+4,yMark-3,fs-1,'#111','left',true);}
+  ctx.setLineDash([]);
+  /* nodos */
+  for(i=0;i<W;i++){
+    var by=barY(i),wk=r.workers[i],c2=COLORS[i%COLORS.length];
+    ctx.fillStyle=c2;ctx.fillRect(x0,by-fs-3,fs-3,fs-3);
+    txt('Nodo '+wk.rank+'  ·  v = '+wk.v.toFixed(2),x0+fs+2,by-4,fs,'#111','left',true);
+    var state='esperando',act=0,lastEnd=0;
+    wk.ints.forEach(function(it){lastEnd=Math.max(lastEnd,it[1]);if(t>=it[0]&&t<it[1]){state='calculando '+it[2]+(it[2]===1?' tarea':' tareas');act=1;}});
+    if(!act){if(t>=r.T-1e-6)state='terminó';else if(t>=lastEnd)state=r.statico?'ocioso: espera al más lento':'pide / espera';}
+    txt(state,x1,by-4,fs,act?c2:'#555','right',!!act);
+    ctx.fillStyle='#fff';ctx.fillRect(x0,by,x1-x0,barH);
+    var upto=Math.min(t,r.T);if(upto>0){ctx.fillStyle=pat;ctx.fillRect(x0,by,tx(upto)-x0,barH);}
+    wk.ints.forEach(function(sg,q){
+      if(t<=sg[0])return;var xa=tx(sg[0]),xb=tx(Math.min(sg[1],t));
+      ctx.fillStyle=c2;ctx.fillRect(xa,by,Math.max(.5,xb-xa),barH);
+      ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(xa,by,1,barH);
+      if(sg[1]<=t&&(tx(sg[1])-xa)>fs*1.6)txt(String(sg[2]),(xa+tx(sg[1]))/2,by+barH/2+fs*.35,fs-1,'#fff','center',true);
+    });
+    ctx.strokeStyle='#b8b8b8';ctx.lineWidth=1;ctx.strokeRect(x0+.5,by+.5,x1-x0-1,barH-1);
+  }
+  /* eje */
+  ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x0,axisY);ctx.lineTo(x1,axisY);ctx.stroke();
+  var step=niceStep(AX);
+  for(var tm=0;tm<=AX+1e-9;tm+=step){ctx.beginPath();ctx.moveTo(tx(tm),axisY);ctx.lineTo(tx(tm),axisY+4);ctx.stroke();txt(tm.toFixed(step<.25?2:1)+' s',tx(tm),axisY+fs+6,fs-2,'#555','center');}
+  var ly=axisY+fs*2+14;
+  ctx.fillStyle='#1F3A68';ctx.fillRect(x0,ly-fs+3,16,fs-3);txt('trabajando',x0+22,ly,fs-1,'#555','left');
+  ctx.fillStyle=pat;ctx.fillRect(x0+104,ly-fs+3,16,fs-3);ctx.strokeStyle='#b8b8b8';ctx.strokeRect(x0+104.5,ly-fs+3.5,15,fs-4);txt('ocioso (esperando)',x0+126,ly,fs-1,'#555','left');
+  var mx=small?x0:x0+126+150,my=small?ly+fs+6:ly;
+  [['PEDIR','#9B2335'],['TRABAJO','#1F3A68'],['FIN','#B8860B']].forEach(function(m){ctx.fillStyle=m[1];ctx.beginPath();ctx.arc(mx+4,my-fs/2+2,4,0,7);ctx.fill();txt(m[0],mx+12,my,fs-1,'#555','left');ctx.font=(fs-1)+'px '+FONT;mx+=ctx.measureText(m[0]).width+30;});
+  /* ahora */
+  var nx=tx(t);ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(nx,lanesTop-2);ctx.lineTo(nx,axisY);ctx.stroke();
+  /* pulsos de mensajes */
+  r.pulses.forEach(function(m){
+    var st=m.end?m.t0-life+(m.delay?life:0):m.t0,p=(t-st)/life;
+    if(p<0||p>1)return;
+    var down=m.end,y0=pad+mh,y1=cy(m.w),len=(y1-y0)+(x0-3-busX),d=(down?p:1-p)*len,px,py;
+    if(d<=y1-y0){px=busX;py=y0+d;}else{px=busX+(d-(y1-y0));py=y1;}
+    ctx.globalAlpha=1-Math.max(0,(p-.7)/.3)*.8;
+    ctx.fillStyle=m.type==='pedir'?'#9B2335':m.type==='fin'?'#B8860B':'#1F3A68';ctx.beginPath();ctx.arc(px,py,5,0,7);ctx.fill();ctx.globalAlpha=1;
+  });
+}
+function draw(){
+  var cw=Math.max(300,wrap.clientWidth-12);
+  if(DIAG&&DIAG.length)drawDiag(cw);else if(RUN)drawRun(cw);else drawVacio(cw);
+}
+
+/* ---------- subtítulos y reloj ---------- */
+function actualizarSub(){
+  if(!RUN||!RUN.subs)return;
+  var p=RUN.T?t/RUN.T:0,idx=-1;
+  for(var i=0;i<RUN.subs.length;i++)if(RUN.subs[i].p<=p+1e-9)idx=i;
+  if(t>=RUN.T-1e-6)idx=RUN.subs.length-1;
+  if(idx!==subIdx&&idx>=0){subIdx=idx;$('#sub').textContent=RUN.subs[idx].t;}
+}
+function frame(ts){
+  var dt=lastTs?Math.min(.1,(ts-lastTs)/1000):0;lastTs=ts;
+  if(playing&&RUN){
+    RUN.dur=($('#ritmo').value==='real')?RUN.T:10;
+    t+=dt*RUN.T/RUN.dur;
+    if(t>=RUN.T){t=RUN.T;if(!fin)terminar();}
+  }
+  draw();actualizarSub();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- controles ---------- */
+function setBotones(){
+  $('#ejec').disabled=busy;$('#sig').disabled=busy;$('#rep').disabled=busy||!RUN;
+  $('#auto').textContent=autoRun?'Detener presentación':'Presentación automática';
+  $('#ejec').textContent=busy?'Ejecutando…':'▶ Ejecutar paso';
+}
+function siguiente(ejecutarYa){
+  var n=Math.min(PASOS.length-1,cur+1);
+  if(n===cur&&fin){autoRun=false;setBotones();return;}
+  cur=n;buildLista();if(ejecutarYa)ejecutar(cur);
+}
+$('#ejec').addEventListener('click',function(){ejecutar(cur);});
+$('#sig').addEventListener('click',function(){siguiente(true);});
+$('#rep').addEventListener('click',function(){if(RUN){t=0;fin=false;subIdx=-2;playing=true;limpiarTiles();}});
+$('#auto').addEventListener('click',function(){
+  autoRun=!autoRun;setBotones();
+  if(autoRun&&!busy){if(done[cur]&&cur<PASOS.length-1)cur++;ejecutar(cur);}
+});
+$('#lista').addEventListener('click',function(e){var b=e.target.closest('button');if(!b||busy)return;autoRun=false;cur=parseInt(b.getAttribute('data-i'),10);buildLista();setBotones();ejecutar(cur);});
+function togglePres(){pres=!pres;document.body.classList.toggle('pres',pres);}
+$('#pres').addEventListener('click',togglePres);
+document.addEventListener('keydown',function(e){
+  var tag=(e.target.tagName||'').toLowerCase();if(tag==='select')return;
+  if(e.key==='Enter'||(e.key===' '&&tag!=='button')){e.preventDefault();if(!busy)ejecutar(cur);}
+  else if(e.key==='ArrowDown'&&!busy){e.preventDefault();cur=Math.min(PASOS.length-1,cur+1);buildLista();}
+  else if(e.key==='ArrowUp'&&!busy){e.preventDefault();cur=Math.max(0,cur-1);buildLista();}
+  else if(e.key==='p'||e.key==='P')togglePres();
+});
+
+/* ---------- arranque ---------- */
+buildLista();setBotones();
+(async function(){
+  var el=$('#estado');
+  try{
+    var ctl=new AbortController(),to=setTimeout(function(){ctl.abort();},1500);
+    var r=await fetch('/api/estado',{signal:ctl.signal});clearTimeout(to);
+    var j=await r.json();
+    if(j.ok&&j.mpiexec){servidor=true;el.className='ok';el.textContent='Conectado: ejecuta MPI de verdad';}
+    else if(j.ok){el.className='sim';el.textContent='Servidor sin mpiexec: usando simulación del navegador';}
+    else throw new Error('x');
+  }catch(e){el.className='sim';el.textContent='Sin servidor: simulación en el navegador (sin MPI)';}
+  term.innerHTML='<span class="p">$ </span><span class="c"></span>';
+})();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+[
+ {
+  "estrategia": "estatico",
+  "chunk": 1,
+  "trabajadores": 4,
+  "tareas": 240,
+  "velocidades": [
+   1.0,
+   1.0,
+   0.5,
+   0.25
+  ],
+  "latencia_ms": 0.0,
+  "modo": "simulado",
+  "degradar": "",
+  "makespan": 2.414187000016682,
+  "t_ideal": 0.8045772897675406,
+  "t_1_nodo": 2.2125875468607368,
+  "speedup": 0.916493853560411,
+  "eficiencia_balanceo": 0.3332704922037858,
+  "utilizacion_media": 0.48771549179621715,
+  "ocioso_total": 4.947002400062047,
+  "desbalance": 2.0501798653452625,
+  "paquetes": 4,
+  "mensajes": 4,
+  "trabajadores_detalle": [
+   {
+    "rank": 1,
+    "velocidad": 1.0,
+    "tareas": 60,
+    "ocupado": 0.5814572999952361,
+    "espera_maestro": 0.0,
+    "ocioso": 1.8327297000214458,
+    "utilizacion": 0.2408501495498146
+   },
+   {
+    "rank": 2,
+    "velocidad": 1.0,
+    "tareas": 60,
+    "ocupado": 0.47530369996093214,
+    "espera_maestro": 0.0,
+    "ocioso": 1.9388833000557497,
+    "utilizacion": 0.19687940493327477
+   },
+   {
+    "rank": 3,
+    "velocidad": 0.5,
+    "tareas": 60,
+    "ocupado": 1.2390282000415027,
+    "espera_maestro": 0.0,
+    "ocioso": 1.1751587999751791,
+    "utilizacion": 0.5132279314042123
+   },
+   {
+    "rank": 4,
+    "velocidad": 0.25,
+    "tareas": 60,
+    "ocupado": 2.4139564000070095,
+    "espera_maestro": 0.0,
+    "ocioso": 0.00023060000967234373,
+    "utilizacion": 0.9999044812975669
+   }
+  ],
+  "makespans": [
+   2.413123599952087,
+   2.414187000016682,
+   2.415576700004749
+  ],
+  "makespan_mediana": 2.414187000016682
+ },
+ {
+  "estrategia": "estatico_ciclico",
+  "chunk": 1,
+  "trabajadores": 4,
+  "tareas": 240,
+  "velocidades": [
+   1.0,
+   1.0,
+   0.5,
+   0.25
+  ],
+  "latencia_ms": 0.0,
+  "modo": "simulado",
+  "degradar": "",
+  "makespan": 2.294437300064601,
+  "t_ideal": 0.8045772897675406,
+  "t_1_nodo": 2.2125875468607368,
+  "speedup": 0.9643268729977674,
+  "eficiencia_balanceo": 0.35066431745373355,
+  "utilizacion_media": 0.5057486861800395,
+  "ocioso_total": 4.536114600137807,
+  "desbalance": 1.9770279202858894,
+  "paquetes": 4,
+  "mensajes": 4,
+  "trabajadores_detalle": [
+   {
+    "rank": 1,
+    "velocidad": 1.0,
+    "tareas": 60,
+    "ocupado": 0.4858544000890106,
+    "espera_maestro": 0.0,
+    "ocioso": 1.8085828999755904,
+    "utilizacion": 0.21175318239262025
+   },
+   {
+    "rank": 2,
+    "velocidad": 1.0,
+    "tareas": 60,
+    "ocupado": 0.5566489000339061,
+    "espera_maestro": 0.0,
+    "ocioso": 1.737788400030695,
+    "utilizacion": 0.24260802420629815
+   },
+   {
+    "rank": 3,
+    "velocidad": 0.5,
+    "tareas": 60,
+    "ocupado": 1.3049709999468178,
+    "espera_maestro": 0.0,
+    "ocioso": 0.9894663001177832,
+    "utilizacion": 0.5687542648953954
+   },
+   {
+    "rank": 4,
+    "velocidad": 0.25,
+    "tareas": 60,
+    "ocupado": 2.294160300050862,
+    "espera_maestro": 0.0,
+    "ocioso": 0.0002770000137388706,
+    "utilizacion": 0.9998792732258445
+   }
+  ],
+  "makespans": [
+   2.2940432999748737,
+   2.294437300064601,
+   2.3013975999783725
+  ],
+  "makespan_mediana": 2.294437300064601
+ },
+ {
+  "estrategia": "estatico_ponderado",
+  "chunk": 1,
+  "trabajadores": 4,
+  "tareas": 240,
+  "velocidades": [
+   1.0,
+   1.0,
+   0.5,
+   0.25
+  ],
+  "latencia_ms": 0.0,
+  "modo": "simulado",
+  "degradar": "",
+  "makespan": 0.914677600027062,
+  "t_ideal": 0.8045772897675406,
+  "t_1_nodo": 2.2125875468607368,
+  "speedup": 2.418980793664647,
+  "eficiencia_balanceo": 0.879629379514417,
+  "utilizacion_media": 0.9207513390243676,
+  "ocioso_total": 0.2899479001061991,
+  "desbalance": 1.085525738346384,
+  "paquetes": 4,
+  "mensajes": 4,
+  "trabajadores_detalle": [
+   {
+    "rank": 1,
+    "velocidad": 1.0,
+    "tareas": 87,
+    "ocupado": 0.7857207000488415,
+    "espera_maestro": 0.0,
+    "ocioso": 0.12895689997822046,
+    "utilizacion": 0.8590138208540309
+   },
+   {
+    "rank": 2,
+    "velocidad": 1.0,
+    "tareas": 87,
+    "ocupado": 0.8253405999857932,
+    "espera_maestro": 0.0,
+    "ocioso": 0.08933700004126877,
+    "utilizacion": 0.9023295202171502
+   },
+   {
+    "rank": 3,
+    "velocidad": 0.5,
+    "tareas": 44,
+    "ocupado": 0.9142196000320837,
+    "espera_maestro": 0.0,
+    "ocioso": 0.0004579999949783087,
+    "utilizacion": 0.9994992771278484
+   },
+   {
+    "rank": 4,
+    "velocidad": 0.25,
+    "tareas": 22,
+    "ocupado": 0.8434815999353305,
+    "espera_maestro": 0.0,
+    "ocioso": 0.07119600009173155,
+    "utilizacion": 0.9221627378984408
+   }
+  ],
+  "makespans": [
+   0.9140157999936491,
+   0.914677600027062,
+   0.9189579000230879
+  ],
+  "makespan_mediana": 0.914677600027062
+ },
+ {
+  "estrategia": "dinamico",
+  "chunk": 1,
+  "trabajadores": 4,
+  "tareas": 240,
+  "velocidades": [
+   1.0,
+   1.0,
+   0.5,
+   0.25
+  ],
+  "latencia_ms": 0.0,
+  "modo": "simulado",
+  "degradar": "",
+  "makespan": 0.8373950999230146,
+  "t_ideal": 0.8045772897675406,
+  "t_1_nodo": 2.2125875468607368,
+  "speedup": 2.6422265273156595,
+  "eficiencia_balanceo": 0.9608096462966035,
+  "utilizacion_media": 0.9879940484343979,
+  "ocioso_total": 0.04021490004379302,
+  "desbalance": 1.0104425155655852,
+  "paquetes": 240,
+  "mensajes": 488,
+  "trabajadores_detalle": [
+   {
+    "rank": 1,
+    "velocidad": 1.0,
+    "tareas": 82,
+    "ocupado": 0.8243727002991363,
+    "espera_maestro": 0.0029372996650636196,
+    "ocioso": 0.0130223996238783,
+    "utilizacion": 0.984448918288302
+   },
+   {
+    "rank": 2,
+    "velocidad": 1.0,
+    "tareas": 82,
+    "ocupado": 0.8227095997426659,
+    "espera_maestro": 0.0036484996089711785,
+    "ocioso": 0.014685500180348754,
+    "utilizacion": 0.9824628778199217
+   },
+   {
+    "rank": 3,
+    "velocidad": 0.5,
+    "tareas": 46,
+    "ocupado": 0.826302299508825,
+    "espera_maestro": 0.0020497003570199013,
+    "ocioso": 0.011092800414189696,
+    "utilizacion": 0.9867532059654881
+   },
+   {
+    "rank": 4,
+    "velocidad": 0.25,
+    "tareas": 30,
+    "ocupado": 0.8359809000976384,
+    "espera_maestro": 0.0012675002217292786,
+    "ocioso": 0.0014141998253762722,
+    "utilizacion": 0.9983111916638797
+   }
+  ],
+  "makespans": [
+   0.8370500999735668,
+   0.8373950999230146,
+   0.8422142000636086
+  ],
+  "makespan_mediana": 0.8373950999230146
+ },
+ {
+  "estrategia": "dinamico",
+  "chunk": 4,
+  "trabajadores": 4,
+  "tareas": 240,
+  "velocidades": [
+   1.0,
+   1.0,
+   0.5,
+   0.25
+  ],
+  "latencia_ms": 0.0,
+  "modo": "simulado",
+  "degradar": "",
+  "makespan": 0.9247124999528751,
+  "t_ideal": 0.8045772897675406,
+  "t_1_nodo": 2.2125875468607368,
+  "speedup": 2.3927302236895187,
+  "eficiencia_balanceo": 0.8700837177052795,
+  "utilizacion_media": 0.9140085702494622,
+  "ocioso_total": 0.3180693999165669,
+  "desbalance": 1.0931586629373335,
+  "paquetes": 60,
+  "mensajes": 128,
+  "trabajadores_detalle": [
+   {
+    "rank": 1,
+    "velocidad": 1.0,
+    "tareas": 80,
+    "ocupado": 0.8021116998279467,
+    "espera_maestro": 0.0020443005487322807,
+    "ocioso": 0.12260080012492836,
+    "utilizacion": 0.8674173863431323
+   },
+   {
+    "rank": 2,
+    "velocidad": 1.0,
+    "tareas": 88,
+    "ocupado": 0.8539059001486748,
+    "espera_maestro": 0.002037599799223244,
+    "ocioso": 0.07080659980420023,
+    "utilizacion": 0.9234285252899591
+   },
+   {
+    "rank": 3,
+    "velocidad": 0.5,
+    "tareas": 48,
+    "ocupado": 0.8008305998519063,
+    "espera_maestro": 0.0014616999542340636,
+    "ocioso": 0.12388190010096878,
+    "utilizacion": 0.8660319827975916
+   },
+   {
+    "rank": 4,
+    "velocidad": 0.25,
+    "tareas": 24,
+    "ocupado": 0.9239324000664055,
+    "espera_maestro": 0.0007630001055076718,
+    "ocioso": 0.000780099886469543,
+    "utilizacion": 0.9991563865671662
+   }
+  ],
+  "makespans": [
+   0.9198817000724375,
+   0.9247124999528751,
+   0.9636946000391617
+  ],
+  "makespan_mediana": 0.9247124999528751
+ },
+ {
+  "estrategia": "guiado",
+  "chunk": 1,
+  "trabajadores": 4,
+  "tareas": 240,
+  "velocidades": [
+   1.0,
+   1.0,
+   0.5,
+   0.25
+  ],
+  "latencia_ms": 0.0,
+  "modo": "simulado",
+  "degradar": "",
+  "makespan": 1.0509959999471903,
+  "t_ideal": 0.8045772897675406,
+  "t_1_nodo": 2.2125875468607368,
+  "speedup": 2.1052292748706116,
+  "eficiencia_balanceo": 0.7655379181347678,
+  "utilizacion_media": 0.8227144298958673,
+  "ocioso_total": 0.7453057001112029,
+  "desbalance": 1.2152434069131075,
+  "paquetes": 31,
+  "mensajes": 70,
+  "trabajadores_detalle": [
+   {
+    "rank": 1,
+    "velocidad": 1.0,
+    "tareas": 85,
+    "ocupado": 0.8209265996702015,
+    "espera_maestro": 0.0012436998076736927,
+    "ocioso": 0.23006940027698874,
+    "utilizacion": 0.7810939334797191
+   },
+   {
+    "rank": 2,
+    "velocidad": 1.0,
+    "tareas": 87,
+    "ocupado": 0.791199499857612,
+    "espera_maestro": 0.0015813998179510236,
+    "ocioso": 0.25979650008957833,
+    "utilizacion": 0.752809239899455
+   },
+   {
+    "rank": 3,
+    "velocidad": 0.5,
+    "tareas": 38,
+    "ocupado": 0.7957682000705972,
+    "espera_maestro": 0.0006013000383973122,
+    "ocioso": 0.25522779987659305,
+    "utilizacion": 0.757156259501066
+   },
+   {
+    "rank": 4,
+    "velocidad": 0.25,
+    "tareas": 30,
+    "ocupado": 1.0507840000791475,
+    "espera_maestro": 0.0002904001157730818,
+    "ocioso": 0.00021199986804276705,
+    "utilizacion": 0.9997982867032287
+   }
+  ],
+  "makespans": [
+   1.0170827999245375,
+   1.0509959999471903,
+   1.051322799990885
+  ],
+  "makespan_mediana": 1.0509959999471903
+ }
+]

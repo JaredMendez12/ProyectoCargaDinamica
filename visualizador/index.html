@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visualizador de carga dinámica</title>
+<style>
+/* Idea de diseño: página clara y formal (misma paleta que la presentación): controles arriba,
+   escena animada al centro (cola de tareas, mensajes, nodos), métricas y comparación abajo. */
+:root{
+  --papel:#ffffff; --tinta:#111111; --suave:#555555; --regla:#cfcfcf; --panel:#f2f2f2;
+  --estatico:#9B2335; --dinamico:#1F3A68; --guiado:#2E7D7A; --ocre:#B8860B;
+  --serif:"Times New Roman",Times,"Liberation Serif","Nimbus Roman",serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--papel);color:var(--tinta);font-family:var(--serif);font-size:17px;line-height:1.35}
+body{padding:0 0 40px}
+.wrap{max-width:1100px;margin:0 auto;padding:0 16px}
+body.pres{font-size:20px}
+header{padding:22px 0 10px}
+.kicker{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--suave)}
+h1{margin:4px 0 2px;font-weight:400;font-size:34px;color:var(--dinamico);text-wrap:balance}
+.sub{color:var(--suave);margin:0}
+hr.fino{border:0;border-top:1px solid var(--regla);margin:12px 0}
+.card{border:1px solid var(--regla);border-radius:4px;background:var(--papel)}
+.panel{background:var(--panel);border-radius:4px;padding:12px 14px}
+.fila{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.fila+.fila{margin-top:10px}
+.etq{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--suave);margin-right:4px}
+button,select{font-family:inherit;font-size:16px;color:var(--tinta)}
+button{border:1px solid #999;background:var(--papel);border-radius:3px;padding:7px 12px;cursor:pointer}
+button:hover{background:#fafafa;border-color:#666}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--dinamico);outline-offset:2px}
+.seg button{border-radius:3px}
+.seg button[aria-checked="true"]{color:#fff}
+.seg button[data-s="estatico"][aria-checked="true"],.seg button[data-s="ciclico"][aria-checked="true"],.seg button[data-s="ponderado"][aria-checked="true"]{background:var(--estatico);border-color:var(--estatico)}
+.seg button[data-s="dinamico"][aria-checked="true"]{background:var(--dinamico);border-color:var(--dinamico)}
+.seg button[data-s="guiado"][aria-checked="true"]{background:var(--guiado);border-color:var(--guiado)}
+.primario{background:var(--dinamico);color:#fff;border-color:var(--dinamico);min-width:112px}
+.primario:hover{background:#2a4a80}
+.explica{margin:10px 0 0;font-size:1.02em}
+.explica b{color:var(--dinamico)}
+input[type=range]{accent-color:var(--dinamico);height:22px}
+#scrub{flex:1;min-width:140px}
+.tiempo{font-variant-numeric:tabular-nums;color:var(--suave);min-width:150px;text-align:right}
+details{margin-top:10px}
+summary{cursor:pointer;font-size:15px;color:var(--suave)}
+.params{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 22px;margin-top:10px}
+.params label{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:15px}
+.params label input[type=range]{grid-column:1/3;width:100%}
+.params output{font-variant-numeric:tabular-nums;color:var(--dinamico)}
+.chk{display:flex;gap:8px;align-items:center;font-size:15px}
+.hint{font-size:13.5px;color:var(--suave);grid-column:1/-1;margin:0}
+#escenaWrap{margin-top:14px;padding:6px}
+canvas{display:block;width:100%}
+#relato{margin:10px 0 0;padding:10px 14px;border-left:4px solid var(--dinamico);background:var(--panel);min-height:96px}
+#relato ol{list-style:none;margin:0;padding:0}
+#relato li{display:flex;gap:10px;color:var(--suave);font-size:.92em;padding:1px 0}
+#relato li:first-child{color:var(--tinta);font-size:1.08em;font-weight:700}
+#relato li.fin{color:var(--dinamico)}
+#relato .t{font-variant-numeric:tabular-nums;min-width:62px;font-weight:400;color:var(--suave)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px}
+.tile{padding:10px 12px}
+.tile .n{font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile .l{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--suave)}
+.tile small{display:block;color:var(--suave);font-size:13px}
+.comp{margin-top:14px;padding:12px 14px}
+.comp h2{margin:0 0 8px;font-weight:400;font-size:20px;color:var(--dinamico)}
+.barra{display:grid;grid-template-columns:150px 1fr 64px;gap:10px;align-items:center;width:100%;border:1px solid transparent;border-radius:3px;padding:4px 6px;background:none;text-align:left}
+.barra:hover{background:#fafafa}
+.barra[aria-pressed="true"]{border-color:#999;background:#fafafa}
+.pista{position:relative;height:20px;background:#f4f4f4;border-radius:2px}
+.relleno{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
+.ideal{position:absolute;top:-3px;bottom:-3px;border-left:2px dashed var(--guiado)}
+.val{font-variant-numeric:tabular-nums;text-align:right}
+.nota{font-size:13.5px;color:var(--suave);margin:8px 0 0}
+footer{margin-top:18px;font-size:13.5px;color:var(--suave)}
+.pres .barra{grid-template-columns:190px 1fr 80px}
+@media (max-width:560px){
+  h1{font-size:27px}
+  .barra{grid-template-columns:104px 1fr 54px;font-size:15px}
+  .tiempo{min-width:0;text-align:left}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="kicker">Cómputo paralelo distribuido · Maestro–Trabajador</div>
+  <h1>Carga dinámica: quién trabaja y quién espera</h1>
+  <p class="sub">Cada cuadro es una tarea. Cada nodo tiene una velocidad distinta. Elige cómo repartir el trabajo y mira qué pasa.</p>
+</header>
+
+<section class="panel" aria-label="Controles">
+  <div class="fila">
+    <span class="etq">Reparto</span>
+    <div class="fila seg" role="radiogroup" aria-label="Estrategia de reparto" id="estrategias">
+      <button role="radio" data-s="estatico" aria-checked="false">Estático</button>
+      <button role="radio" data-s="ciclico" aria-checked="false">Estático cíclico</button>
+      <button role="radio" data-s="ponderado" aria-checked="false">Estático ponderado</button>
+      <button role="radio" data-s="dinamico" aria-checked="true">Dinámico</button>
+      <button role="radio" data-s="guiado" aria-checked="false">Guiado</button>
+    </div>
+  </div>
+  <p class="explica" id="explica"></p>
+
+  <div class="fila">
+    <span class="etq">Casos</span>
+    <button class="preset" data-p="iguales">Nodos iguales</button>
+    <button class="preset" data-p="distintos">Nodos distintos</button>
+    <button class="preset" data-p="degrada">Un nodo se degrada</button>
+    <button class="preset" data-p="grande">Paquete demasiado grande</button>
+    <button class="preset" data-p="lenta">Red lenta</button>
+  </div>
+
+  <div class="fila">
+    <button class="primario" id="play">Reproducir</button>
+    <button id="reset">Reiniciar</button>
+    <button id="demo">Demostración</button>
+    <label class="fila" style="gap:6px"><span class="etq" style="margin:0">Velocidad</span>
+      <select id="vel" aria-label="Velocidad de la animación">
+        <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option>
+      </select></label>
+    <input type="range" id="scrub" min="0" max="1000" step="1" value="0" aria-label="Tiempo de la simulación">
+    <span class="tiempo" id="tlabel">t = 0.00 s</span>
+  </div>
+
+  <details id="detalles">
+    <summary>Parámetros (velocidad de cada nodo, paquete, latencia)</summary>
+    <div class="params" id="params">
+      <label>Número de nodos <output id="o-n">4</output>
+        <input type="range" id="i-n" min="2" max="6" step="1" value="4"></label>
+      <label>Tareas <output id="o-N">240</output>
+        <input type="range" id="i-N" min="60" max="480" step="20" value="240"></label>
+      <label>Paquete k (tareas por envío) <output id="o-k">8</output>
+        <input type="range" id="i-k" min="1" max="60" step="1" value="8"></label>
+      <label>Latencia de red L (ms, un sentido) <output id="o-L">3</output>
+        <input type="range" id="i-L" min="0" max="20" step="1" value="3"></label>
+      <div id="vels" style="display:contents"></div>
+      <label class="chk"><input type="checkbox" id="i-deg"> El nodo 2 baja al 25 % de su velocidad en t = 0.30 s</label>
+      <p class="hint" id="kmin"></p>
+    </div>
+  </details>
+</section>
+
+<section class="card" id="escenaWrap" aria-label="Escena de la simulación">
+  <canvas id="escena" role="img" aria-label="Animación del maestro, la cola de tareas y los nodos trabajadores"></canvas>
+</section>
+<div id="relato" aria-live="polite"><ol id="eventos"></ol></div>
+
+<section class="tiles" aria-label="Métricas">
+  <div class="card tile"><div class="l">Tiempo total</div><div class="n" id="m-T">–</div><small>cuando termina el último nodo</small></div>
+  <div class="card tile"><div class="l">Tiempo ideal</div><div class="n" id="m-I">–</div><small>todos terminan a la vez</small></div>
+  <div class="card tile"><div class="l">Eficiencia</div><div class="n" id="m-E">–</div><small>ideal / total</small></div>
+  <div class="card tile"><div class="l">Utilización</div><div class="n" id="m-U">–</div><small>tiempo ocupado de los nodos</small></div>
+  <div class="card tile"><div class="l">Mensajes</div><div class="n" id="m-M">–</div><small>entre maestro y nodos</small></div>
+  <div class="card tile"><div class="l">Speedup</div><div class="n" id="m-S">–</div><small>contra un solo nodo rápido</small></div>
+</section>
+
+<section class="card comp" aria-label="Comparación de estrategias">
+  <h2>Mismo problema, cinco repartos</h2>
+  <div id="comp"></div>
+  <p class="nota">Línea punteada verde: tiempo ideal. Toca una barra para ver esa estrategia.</p>
+</section>
+
+<footer>
+  Simulación en el navegador del mismo algoritmo de <code>balanceo.py</code> (maestro–trabajador, tarea = costo / velocidad). Tiempos en segundos virtuales.
+  Atajos: espacio reproduce o pausa, R reinicia, 1 a 5 cambian el reparto, P activa el modo proyector.
+  <button id="pres" style="margin-left:8px;font-size:14px;padding:4px 9px">Modo proyector</button>
+</footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+var $=function(s){return document.querySelector(s);};
+var COLORS=['#1F3A68','#2E7D7A','#B8860B','#9B2335','#6B4E8A','#5B6770'];
+var NAMES={estatico:'Estático',ciclico:'Estático cíclico',ponderado:'Estático ponderado',dinamico:'Dinámico',guiado:'Guiado'};
+var ORDER=['estatico','ciclico','ponderado','dinamico','guiado'];
+var DESC={
+ estatico:'<b>Estático:</b> el maestro reparte todo al inicio, el mismo número de tareas para cada nodo (un solo Scatter). Si un nodo es lento, los demás terminan y se quedan esperando.',
+ ciclico:'<b>Estático cíclico:</b> reparto por turnos (tarea 1 al nodo 1, tarea 2 al nodo 2…). También se decide antes de ejecutar: no mira las velocidades.',
+ ponderado:'<b>Estático ponderado:</b> reparte en proporción a la velocidad de cada nodo. Funciona solo si conoces las velocidades y no cambian durante la ejecución.',
+ dinamico:'<b>Dinámico:</b> el maestro guarda la cola de tareas. Cada nodo que se desocupa pide un paquete de k tareas. El nodo rápido pide más veces, así que nadie espera mientras haya cola.',
+ guiado:'<b>Guiado:</b> como el dinámico, pero el paquete se encoge: grande al inicio (menos mensajes) y chico al final (todos terminan juntos).'
+};
+var CBAR=10, SIGMA=0.5, DEG_NODE=1, DEG_T=300, DEG_F=0.25;
+var S={strat:'dinamico',n:4,v:[1,1,0.5,0.25,0.5,0.5],chunk:8,lat:3,N:240,deg:false,speed:1,t:0,playing:false,pres:false};
+var costs=[], R={}, Tmax=1, TIDEAL=0, demoStage=0;
+var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- datos: costos de tareas (log-normal, semilla fija) ---------- */
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function makeCosts(){
+  var r=rng(42);costs=[];
+  for(var i=0;i<S.N;i++){
+    var u1=Math.max(r(),1e-9),u2=r();
+    var z=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+    costs.push(CBAR*Math.exp(SIGMA*z-SIGMA*SIGMA/2));
+  }
+}
+/* ---------- simulación por eventos ---------- */
+function finish(t,work,i){
+  var v=S.v[i];
+  if(S.deg&&i===DEG_NODE){
+    if(t>=DEG_T)return t+work/(v*DEG_F);
+    var done=(DEG_T-t)*v;
+    if(done>=work)return t+work/v;
+    return DEG_T+(work-done)/(v*DEG_F);
+  }
+  return t+work/v;
+}
+function blocks(strat){
+  var W=S.n,N=S.N,out=[],i,k;
+  for(i=0;i<W;i++)out.push([]);
+  if(strat==='ciclico'){for(var j=0;j<N;j++)out[j%W].push(j);return out;}
+  var q=[],sv=0;
+  for(i=0;i<W;i++)sv+=S.v[i];
+  for(i=0;i<W;i++)q.push(strat==='ponderado'?N*S.v[i]/sv:N/W);
+  var base=q.map(Math.floor),rem=N-base.reduce(function(a,b){return a+b;},0);
+  var ord=q.map(function(x,i){return [x-Math.floor(x),i];}).sort(function(a,b){return b[0]-a[0]||a[1]-b[1];});
+  for(k=0;k<rem;k++)base[ord[k][1]]++;
+  var p=0;
+  for(i=0;i<W;i++)for(k=0;k<base[i];k++)out[i].push(p++);
+  return out;
+}
+function nodo(i){return 'Nodo '+(i+1);}
+function simulate(strat){
+  var W=S.n,L=S.lat,N=S.N,i;
+  var tasks=new Array(N),segs=[],msgs=[],ev=[];
+  for(i=0;i<W;i++)segs.push([]);
+  function run(w,start,ids,sendT){
+    var cur=start;
+    for(var q=0;q<ids.length;q++){var t1=finish(cur,costs[ids[q]],w);tasks[ids[q]]={w:w,send:sendT,t0:cur,t1:t1};cur=t1;}
+    segs[w].push({a:start,b:cur,k:ids.length});
+    return cur;
+  }
+  if(strat==='estatico'||strat==='ciclico'||strat==='ponderado'){
+    var bl=blocks(strat);
+    var how=strat==='estatico'?'el mismo número de tareas':strat==='ciclico'?'tareas por turnos':'tareas en proporción a su velocidad';
+    ev.push({t:0,text:'El maestro reparte todo de una vez ('+how+') con un Scatter. Nadie vuelve a pedir nada.'});
+    for(i=0;i<W;i++){
+      msgs.push({t0:0,t1:L,w:i,type:'work',k:bl[i].length});
+      run(i,L,bl[i],0);
+    }
+  }else{
+    var reqs=[],next=0;
+    for(i=0;i<W;i++)reqs.push({arr:L,send:0,w:i});
+    while(reqs.length){
+      reqs.sort(function(a,b){return a.arr-b.arr||a.w-b.w;});
+      var q=reqs.shift();
+      msgs.push({t0:q.send,t1:q.arr,w:q.w,type:'pedir',k:0});
+      ev.push({t:q.send,text:nodo(q.w)+' está libre y pide trabajo (PEDIR).'});
+      if(next<N){
+        var rest=N-next;
+        var k=strat==='guiado'?Math.max(1,Math.ceil(rest/(2*W))):Math.min(S.chunk,rest);
+        var ids=[];
+        for(var j=0;j<k;j++)ids.push(next++);
+        msgs.push({t0:q.arr,t1:q.arr+L,w:q.w,type:'work',k:k});
+        ev.push({t:q.arr,text:'El maestro responde a '+nodo(q.w)+' con un paquete de '+k+(k===1?' tarea':' tareas')+'. Quedan '+(N-next)+' en la cola.'});
+        var end=run(q.w,q.arr+L,ids,q.arr);
+        reqs.push({arr:end+L,send:end,w:q.w});
+      }else{
+        msgs.push({t0:q.arr,t1:q.arr+L,w:q.w,type:'fin',k:0});
+        ev.push({t:q.arr,text:'La cola está vacía: el maestro envía FIN a '+nodo(q.w)+'.'});
+      }
+    }
+  }
+  var T=0,busy=[],sumBusy=0;
+  for(i=0;i<W;i++){
+    var b=0,e=0;
+    segs[i].forEach(function(s){b+=s.b-s.a;e=Math.max(e,s.b);});
+    busy.push(b);sumBusy+=b;T=Math.max(T,e);
+    segs[i].end=e;
+  }
+  if(strat==='estatico'||strat==='ciclico'||strat==='ponderado'){
+    for(i=0;i<W;i++){
+      if(segs[i].end<T-1)ev.push({t:segs[i].end,text:nodo(i)+' terminó y queda ocioso (rayado): espera al más lento.'});
+      else ev.push({t:segs[i].end,text:nodo(i)+' es el último en terminar: ahí acaba todo el trabajo.'});
+    }
+  }
+  ev.sort(function(a,b){return a.t-b.t;});
+  var sumC=costs.reduce(function(a,b){return a+b;},0),sumV=0,vmax=0;
+  for(i=0;i<W;i++){sumV+=S.v[i];vmax=Math.max(vmax,S.v[i]);}
+  var tideal=sumC/sumV;
+  return {tasks:tasks,segs:segs,msgs:msgs,ev:ev,T:T,tideal:tideal,
+          ef:tideal/T,ut:sumBusy/(W*T),M:msgs.length,sp:(sumC/vmax)/T};
+}
+function recalc(){
+  makeCosts();
+  var mx=0;
+  ORDER.forEach(function(s){R[s]=simulate(s);mx=Math.max(mx,R[s].T);});
+  TIDEAL=R.dinamico.tideal;
+  Tmax=mx*1.04;
+  buildComp();updateTiles();updateKmin();syncScrub();
+}
+function cur(){return R[S.strat];}
+function fmt(ms){return (ms/1000).toFixed(2)+' s';}
+
+/* ---------- interfaz: textos y controles ---------- */
+function updateTiles(){
+  var r=cur();
+  $('#m-T').textContent=fmt(r.T);
+  $('#m-I').textContent=fmt(r.tideal);
+  $('#m-E').textContent=Math.round(r.ef*100)+' %';
+  $('#m-U').textContent=Math.round(r.ut*100)+' %';
+  $('#m-M').textContent=r.M;
+  $('#m-S').textContent=r.sp.toFixed(2)+'×';
+  $('#explica').innerHTML=DESC[S.strat]+(S.strat==='dinamico'?' Paquete actual: k = '+S.chunk+'.':'');
+  var btns=document.querySelectorAll('#estrategias button');
+  for(var i=0;i<btns.length;i++)btns[i].setAttribute('aria-checked',btns[i].getAttribute('data-s')===S.strat?'true':'false');
+}
+function updateKmin(){
+  var vmax=Math.max.apply(null,S.v.slice(0,S.n));
+  var k=18*S.lat*vmax/CBAR;
+  $('#kmin').innerHTML='Para que la comunicación cueste menos del 10 % del cómputo: k ≥ 18·L·v/c̄ = '+k.toFixed(1)+' tareas (con L = '+S.lat+' ms, v = '+vmax.toFixed(2)+' y c̄ = '+CBAR+' ms). Un paquete menor desperdicia tiempo en mensajes; uno muy grande deja trabajo atorado en un nodo lento.';
+}
+function buildComp(){
+  var h='';
+  ORDER.forEach(function(s){
+    var r=R[s],w=Math.min(100,r.T/Tmax*100),ip=Math.min(100,r.tideal/Tmax*100);
+    var col=(s==='dinamico')?'var(--dinamico)':(s==='guiado')?'var(--guiado)':'var(--estatico)';
+    h+='<button class="barra" data-s="'+s+'" aria-pressed="'+(s===S.strat)+'"><span>'+NAMES[s]+'</span>'+
+       '<span class="pista"><span class="relleno" style="width:'+w.toFixed(1)+'%;background:'+col+'"></span><span class="ideal" style="left:'+ip.toFixed(1)+'%"></span></span>'+
+       '<span class="val">'+fmt(r.T)+'</span></button>';
+  });
+  $('#comp').innerHTML=h;
+}
+function buildVels(){
+  var h='';
+  for(var i=0;i<S.n;i++){
+    h+='<label>Velocidad nodo '+(i+1)+' <output id="o-v'+i+'">'+S.v[i].toFixed(2)+'</output>'+
+       '<input type="range" id="i-v'+i+'" data-i="'+i+'" min="0.1" max="2" step="0.05" value="'+S.v[i]+'"></label>';
+  }
+  $('#vels').innerHTML=h;
+}
+function syncScrub(){
+  var sc=$('#scrub');sc.max=Math.round(cur().T);sc.value=Math.round(S.t);
+  $('#tlabel').textContent='t = '+fmt(S.t)+' / '+fmt(cur().T);
+  $('#play').textContent=S.playing?'Pausar':'Reproducir';
+}
+function syncParams(){
+  $('#i-n').value=S.n;$('#o-n').textContent=S.n;
+  $('#i-N').value=S.N;$('#o-N').textContent=S.N;
+  $('#i-k').value=S.chunk;$('#o-k').textContent=S.chunk;
+  $('#i-L').value=S.lat;$('#o-L').textContent=S.lat;
+  $('#i-deg').checked=S.deg;
+  buildVels();
+}
+function setStrat(s,play){
+  S.strat=s;demoStage=0;
+  S.t=0;S.playing=!!play&&!reduce;
+  if(!S.playing)S.t=cur().T;
+  updateTiles();buildComp();syncScrub();lastEv=-2;
+}
+function paramChanged(){
+  demoStage=0;recalc();S.playing=false;S.t=cur().T;lastEv=-2;syncScrub();
+}
+var PRESETS={
+  iguales:function(){S.n=4;S.v=[1,1,1,1,1,1];S.deg=false;S.lat=3;S.chunk=8;S.N=240;},
+  distintos:function(){S.n=4;S.v=[1,1,0.5,0.25,0.5,0.5];S.deg=false;S.lat=3;S.chunk=8;S.N=240;},
+  degrada:function(){S.n=4;S.v=[1,1,1,1,1,1];S.deg=true;S.lat=3;S.chunk=8;S.N=240;},
+  grande:function(){S.n=4;S.v=[1,1,0.5,0.25,0.5,0.5];S.deg=false;S.lat=3;S.chunk=60;S.N=240;S.strat='dinamico';},
+  lenta:function(){S.n=4;S.v=[1,1,0.5,0.25,0.5,0.5];S.deg=false;S.lat=15;S.chunk=1;S.N=240;S.strat='dinamico';}
+};
+
+/* ---------- dibujo ---------- */
+var cv=$('#escena'),ctx=cv.getContext('2d'),wrap=$('#escenaWrap'),pat=null,lastEv=-2;
+function makePattern(){
+  var c=document.createElement('canvas');c.width=c.height=8;
+  var g=c.getContext('2d');
+  g.fillStyle='#f4f4f4';g.fillRect(0,0,8,8);
+  g.strokeStyle='#b4b4b4';g.lineWidth=1;g.beginPath();
+  g.moveTo(-1,9);g.lineTo(9,-1);g.moveTo(-1,1);g.lineTo(1,-1);g.moveTo(7,9);g.lineTo(9,7);g.stroke();
+  return ctx.createPattern(c,'repeat');
+}
+var FONT='"Times New Roman",Times,"Liberation Serif",serif';
+function txt(s,x,y,size,col,align,bold){
+  ctx.font=(bold?'bold ':'')+size+'px '+FONT;ctx.fillStyle=col;ctx.textAlign=align||'left';ctx.textBaseline='alphabetic';
+  ctx.fillText(s,x,y);
+}
+function rr(x,y,w,h,r){
+  ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+function niceStep(){
+  var c=[50,100,200,250,500,1000,2000];
+  for(var i=0;i<c.length;i++)if(Tmax/c[i]<=8)return c[i];
+  return 5000;
+}
+function draw(){
+  var r=cur(),t=S.t,W=S.n,N=S.N;
+  var cw=Math.max(300,wrap.clientWidth-12),small=cw<560;
+  var fs=(small?11.5:13.5)*(S.pres?1.22:1),pad=14,mw=small?96:150;
+  var gx=pad+mw+14,gw=cw-pad-gx;
+  var cols=Math.max(8,Math.floor(gw/(small?8:11))),cell=gw/cols,rows=Math.ceil(N/cols);
+  var gy=pad+fs+8,gh=rows*cell;
+  var mh=Math.max(gh+fs+8,small?92:84);
+  var lanesTop=pad+mh+fs+16;
+  var barH=S.pres?30:24,laneH=fs+6+barH+12;
+  var axisY=lanesTop+W*laneH+2;
+  var H=Math.ceil(axisY+fs*2+34+(small?fs+6:0));
+  var dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(cw*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(cw*dpr);cv.height=Math.round(H*dpr);pat=null;}
+  cv.style.height=H+'px';cv.style.width=cw+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cw,H);
+  if(!pat)pat=makePattern();
+
+  var x0=pad+22,x1=cw-pad,busX=pad+8;
+  function tx(ms){return x0+Math.min(ms,Tmax)/Tmax*(x1-x0);}
+  function barY(i){return lanesTop+i*laneH+fs+6;}
+  function cy(i){return barY(i)+barH/2;}
+
+  /* cuadro del maestro */
+  ctx.lineWidth=1.5;ctx.strokeStyle='#111';ctx.fillStyle='#fff';rr(pad,pad,mw,mh,4);ctx.fill();ctx.stroke();
+  txt('MAESTRO',pad+mw/2,pad+fs+4,fs,'#111','center',true);
+  txt('rank 0',pad+mw/2,pad+fs*2+6,fs-1,'#555','center');
+  var pend=0,sent=0,i,id;
+  for(id=0;id<N;id++)if(t<r.tasks[id].send)pend++;
+  for(i=0;i<r.msgs.length;i++)if(r.msgs[i].t0<=t)sent++;
+  txt('En cola: '+pend,pad+8,pad+fs*3+14,fs,'#1F3A68','left',true);
+  txt('Mensajes: '+sent,pad+8,pad+fs*4+18,fs,'#555','left');
+
+  /* cuadrícula de tareas */
+  txt(small?'Tareas':'Tareas (cada cuadro es una tarea)',gx,pad+fs,fs,'#555','left');
+  var lx=cw-pad;
+  var leg=small?[['pend.','#fff','#bbb'],['asig.','rgba(31,58,104,.25)',null],['lista','#1F3A68',null]]:[['pendiente','#fff','#bbb'],['asignada','rgba(31,58,104,.25)',null],['terminada','#1F3A68',null]];
+  for(i=leg.length-1;i>=0;i--){
+    ctx.font=(fs-1)+'px '+FONT;var wlab=ctx.measureText(leg[i][0]).width;
+    txt(leg[i][0],lx,pad+fs,fs-1,'#555','right');
+    lx-=wlab+6;
+    ctx.fillStyle=leg[i][1];ctx.fillRect(lx-fs+2,pad+3,fs-2,fs-2);
+    if(leg[i][2]){ctx.strokeStyle=leg[i][2];ctx.lineWidth=1;ctx.strokeRect(lx-fs+2.5,pad+3.5,fs-3,fs-3);}
+    lx-=fs+12;
+  }
+  for(id=0;id<N;id++){
+    var tk=r.tasks[id],cx=gx+(id%cols)*cell,cyy=gy+Math.floor(id/cols)*cell,col=COLORS[tk.w%COLORS.length];
+    var inset=Math.max(.6,cell*.1),cs=cell-inset*2;
+    if(t<tk.send){ctx.fillStyle='#fff';ctx.fillRect(cx+inset,cyy+inset,cs,cs);ctx.strokeStyle='#c4c4c4';ctx.lineWidth=1;ctx.strokeRect(cx+inset+.5,cyy+inset+.5,cs-1,cs-1);}
+    else if(t<tk.t0){ctx.globalAlpha=.28;ctx.fillStyle=col;ctx.fillRect(cx+inset,cyy+inset,cs,cs);ctx.globalAlpha=1;}
+    else if(t<tk.t1){ctx.fillStyle=col;ctx.fillRect(cx+inset,cyy+inset,cs,cs);ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.strokeRect(cx+inset,cyy+inset,cs,cs);}
+    else{ctx.fillStyle=col;ctx.fillRect(cx+inset,cyy+inset,cs,cs);}
+  }
+
+  /* bus de mensajes */
+  ctx.strokeStyle='#cfcfcf';ctx.lineWidth=1;ctx.beginPath();
+  ctx.moveTo(busX,pad+mh);ctx.lineTo(busX,cy(W-1));
+  for(i=0;i<W;i++){ctx.moveTo(busX,cy(i));ctx.lineTo(x0-3,cy(i));}
+  ctx.stroke();
+
+  /* marcas de tiempo ideal y fin (fila sobre los nodos) */
+  var yMark=lanesTop-4;
+  var Tend=r.T,showEnd=t>=Tend-0.5;
+  ctx.setLineDash([5,4]);ctx.strokeStyle='#2E7D7A';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(tx(r.tideal),yMark);ctx.lineTo(tx(r.tideal),axisY);ctx.stroke();
+  txt('ideal '+fmt(r.tideal),tx(r.tideal)-4,yMark-3,fs-1,'#2E7D7A','right',true);
+  if(showEnd){
+    ctx.strokeStyle='#111';ctx.beginPath();ctx.moveTo(tx(Tend),yMark);ctx.lineTo(tx(Tend),axisY);ctx.stroke();
+    txt('fin '+fmt(Tend),tx(Tend)+4,yMark-3,fs-1,'#111','left',true);
+  }
+  ctx.setLineDash([]);
+
+  /* nodos: pista rayada (ocio), tramos ocupados y estado */
+  for(i=0;i<W;i++){
+    var by=barY(i),col2=COLORS[i%COLORS.length];
+    ctx.fillStyle=col2;ctx.fillRect(x0,by-fs-3,fs-3,fs-3);
+    txt(nodo(i)+'  ·  v = '+S.v[i].toFixed(2)+(S.deg&&i===DEG_NODE?(t>=DEG_T?'  (degradado)':'  (se degrada en 0.30 s)'):''),x0+fs+2,by-4,fs,'#111','left',true);
+    var segs=r.segs[i],state='esperando',nT=0;
+    for(var q=0;q<segs.length;q++){
+      if(t>=segs[q].a&&t<segs[q].b){state='calculando '+segs[q].k+(segs[q].k===1?' tarea':' tareas');nT=segs[q].k;}
+    }
+    if(t>=segs[segs.length-1].b&&t>=r.T-0.5)state='terminó';
+    else if(t>=segs[segs.length-1].b&&state==='esperando')state=(S.strat==='dinamico'||S.strat==='guiado')?'pide / espera':'ocioso: espera al más lento';
+    txt(state,x1,by-4,fs,nT?col2:'#555','right',!!nT);
+    ctx.fillStyle='#fff';ctx.fillRect(x0,by,x1-x0,barH);
+    var upto=Math.min(t,Tend);
+    if(upto>0){ctx.fillStyle=pat;ctx.fillRect(x0,by,tx(upto)-x0,barH);}
+    for(q=0;q<segs.length;q++){
+      var sg=segs[q];if(t<=sg.a)continue;
+      var xa=tx(sg.a),xb=tx(Math.min(sg.b,t));
+      ctx.fillStyle=col2;ctx.fillRect(xa,by,Math.max(.5,xb-xa),barH);
+      if(q>0||sg.k>0){ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(xa,by,1,barH);}
+      if(sg.b<=t&&(tx(sg.b)-xa)>fs*1.6)txt(String(sg.k),(xa+tx(sg.b))/2,by+barH/2+fs*.35,fs-1,'#fff','center',true);
+    }
+    ctx.strokeStyle='#b8b8b8';ctx.lineWidth=1;ctx.strokeRect(x0+.5,by+.5,x1-x0-1,barH-1);
+  }
+
+  /* eje de tiempo */
+  ctx.strokeStyle='#999';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x0,axisY);ctx.lineTo(x1,axisY);ctx.stroke();
+  var step=niceStep();
+  for(var tm=0;tm<=Tmax;tm+=step){
+    ctx.beginPath();ctx.moveTo(tx(tm),axisY);ctx.lineTo(tx(tm),axisY+4);ctx.stroke();
+    txt((tm/1000).toFixed(step<250?2:1)+' s',tx(tm),axisY+fs+6,fs-2,'#555','center');
+  }
+  /* leyenda */
+  var ly=axisY+fs*2+14;
+  ctx.fillStyle='#1F3A68';ctx.fillRect(x0,ly-fs+3,16,fs-3);txt('trabajando',x0+22,ly,fs-1,'#555','left');
+  ctx.fillStyle=pat;ctx.fillRect(x0+104,ly-fs+3,16,fs-3);ctx.strokeStyle='#b8b8b8';ctx.strokeRect(x0+104.5,ly-fs+3.5,15,fs-4);
+  txt('ocioso (esperando)',x0+126,ly,fs-1,'#555','left');
+  var mx=small?x0:x0+126+150,my=small?ly+fs+6:ly;
+  [['PEDIR','#9B2335'],['TRABAJO','#1F3A68'],['FIN','#B8860B']].forEach(function(m){
+    ctx.fillStyle=m[1];ctx.beginPath();ctx.arc(mx+4,my-fs/2+2,4,0,7);ctx.fill();
+    txt(m[0],mx+12,my,fs-1,'#555','left');
+    ctx.font=(fs-1)+'px '+FONT;mx+=ctx.measureText(m[0]).width+30;
+  });
+
+  /* línea de "ahora" */
+  var nx=tx(t);
+  ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(nx,lanesTop-2);ctx.lineTo(nx,axisY);ctx.stroke();
+
+  /* mensajes en vuelo (pulsos con duración visible) */
+  var rate=Tmax/12*S.speed,life=Math.max(0.55*rate,12);
+  for(i=0;i<r.msgs.length;i++){
+    var m=r.msgs[i],p=(t-m.t0)/life;
+    if(p<0||p>1)continue;
+    var down=m.type!=='pedir',yy0=pad+mh,yy1=cy(m.w),len=(yy1-yy0)+(x0-3-busX),d=(down?p:1-p)*len,px,py;
+    if(d<=yy1-yy0){px=busX;py=yy0+d;}else{px=busX+(d-(yy1-yy0));py=yy1;}
+    var mc=m.type==='pedir'?'#9B2335':m.type==='fin'?'#B8860B':'#1F3A68';
+    ctx.globalAlpha=1-Math.max(0,(p-.7)/.3)*.8;
+    ctx.fillStyle=mc;ctx.beginPath();ctx.arc(px,py,5,0,7);ctx.fill();
+    ctx.globalAlpha=1;
+  }
+}
+
+/* ---------- relato (qué está pasando) ---------- */
+function updateRelato(force){
+  var r=cur(),t=S.t,idx=-1,ev=r.ev;
+  for(var i=0;i<ev.length;i++){if(ev[i].t<=t)idx=i;else break;}
+  var fin=t>=r.T-0.5;
+  var key=idx*2+(fin?1:0);
+  if(!force&&key===lastEv)return;
+  lastEv=key;
+  var h='';
+  if(fin){
+    h+='<li class="fin"><span class="t">'+fmt(r.T)+'</span><span>Terminó: tiempo total '+fmt(r.T)+', ideal '+fmt(r.tideal)+', eficiencia '+Math.round(r.ef*100)+' %, utilización '+Math.round(r.ut*100)+' %.</span></li>';
+  }
+  var shown=0;
+  for(var j=idx;j>=0&&shown<(fin?2:4);j--,shown++){
+    h+='<li><span class="t">'+fmt(ev[j].t)+'</span><span>'+ev[j].text+'</span></li>';
+  }
+  if(!h)h='<li><span class="t">0.00 s</span><span>Pulsa Reproducir para empezar.</span></li>';
+  $('#eventos').innerHTML=h;
+}
+
+/* ---------- reloj de animación ---------- */
+var lastTs=0;
+function frame(ts){
+  var dt=lastTs?Math.min(0.1,(ts-lastTs)/1000):0;lastTs=ts;
+  if(S.playing){
+    var rate=Tmax/12*S.speed;
+    S.t+=dt*rate;
+    var T=cur().T;
+    if(S.t>=T){
+      S.t=T;S.playing=false;
+      if(demoStage===1){demoStage=2;setTimeout(function(){if(demoStage===2){setStrat('dinamico',true);demoStage=3;}},1400);}
+    }
+    syncScrub();
+  }
+  draw();updateRelato(false);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- eventos ---------- */
+function play(){
+  if(S.playing){S.playing=false;}
+  else{if(S.t>=cur().T-0.5){S.t=0;lastEv=-2;}S.playing=true;}
+  syncScrub();
+}
+function reset(){demoStage=0;S.t=0;S.playing=false;lastEv=-2;syncScrub();}
+$('#play').addEventListener('click',play);
+$('#reset').addEventListener('click',reset);
+$('#demo').addEventListener('click',function(){
+  setStrat('estatico',true);demoStage=1;
+  if(reduce){S.t=cur().T;}
+});
+$('#vel').addEventListener('change',function(e){S.speed=parseFloat(e.target.value);});
+$('#scrub').addEventListener('input',function(e){S.playing=false;demoStage=0;S.t=parseFloat(e.target.value);syncScrub();lastEv=-2;});
+$('#estrategias').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setStrat(b.getAttribute('data-s'),true);});
+$('#comp').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setStrat(b.getAttribute('data-s'),true);});
+document.querySelectorAll('.preset').forEach(function(b){
+  b.addEventListener('click',function(){
+    PRESETS[b.getAttribute('data-p')]();
+    syncParams();recalc();setStrat(S.strat,true);
+  });
+});
+$('#i-n').addEventListener('input',function(e){S.n=parseInt(e.target.value,10);$('#o-n').textContent=S.n;buildVels();paramChanged();});
+$('#i-N').addEventListener('input',function(e){S.N=parseInt(e.target.value,10);$('#o-N').textContent=S.N;paramChanged();});
+$('#i-k').addEventListener('input',function(e){S.chunk=parseInt(e.target.value,10);$('#o-k').textContent=S.chunk;paramChanged();});
+$('#i-L').addEventListener('input',function(e){S.lat=parseInt(e.target.value,10);$('#o-L').textContent=S.lat;paramChanged();});
+$('#i-deg').addEventListener('change',function(e){S.deg=e.target.checked;paramChanged();});
+$('#vels').addEventListener('input',function(e){
+  var i=parseInt(e.target.getAttribute('data-i'),10);
+  S.v[i]=parseFloat(e.target.value);$('#o-v'+i).textContent=S.v[i].toFixed(2);paramChanged();
+});
+function togglePres(){S.pres=!S.pres;document.body.classList.toggle('pres',S.pres);}
+$('#pres').addEventListener('click',togglePres);
+document.addEventListener('keydown',function(e){
+  var tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='select')return;
+  if(e.key===' '&&tag!=='button'){e.preventDefault();play();}
+  else if(e.key==='r'||e.key==='R')reset();
+  else if(e.key==='p'||e.key==='P')togglePres();
+  else if(e.key>='1'&&e.key<='5')setStrat(ORDER[parseInt(e.key,10)-1],true);
+});
+window.addEventListener('resize',function(){draw();});
+
+/* ---------- arranque: estado completo en reposo (dinámico terminado) ---------- */
+syncParams();recalc();
+S.t=cur().T;S.playing=false;
+syncScrub();updateRelato(true);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

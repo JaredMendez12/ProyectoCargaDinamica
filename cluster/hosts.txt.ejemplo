@@ -1,0 +1,8 @@
+# Ejemplo de archivo de hosts (MPICH / Hydra). Una laptop por linea: IP:procesos
+# Copia este archivo a cluster/hosts.txt y cambia las IP por las de tus laptops
+# (en Windows: ipconfig, en Linux/Mac: ip a / ifconfig).
+# La primera linea es la laptop donde se lanza el maestro (rank 0).
+192.168.1.10:1
+192.168.1.11:1
+192.168.1.12:1
+192.168.1.13:1
