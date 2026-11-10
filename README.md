@@ -57,8 +57,8 @@ en el repositorio, así que no necesitas LaTeX solo para verlos.
 
 ```bash
 # 1) Clonar el repositorio
-git clone https://github.com/<tu-usuario>/carga-dinamica.git
-cd carga-dinamica
+git clone https://github.com/JaredMendez12/ProyectoCargaDinamica.git
+cd ProyectoCargaDinamica
 
 # 2) (Recomendado) crear un entorno virtual
 python -m venv .venv
@@ -159,7 +159,7 @@ archivo de hosts (`cluster/hosts.txt.ejemplo`), diagnóstico de red y comandos p
 ## 4. Estructura del proyecto
 
 ```
-carga-dinamica/
+ProyectoCargaDinamica/
 ├── balanceo.py              # Maestro, trabajador, las 5 estrategias y las métricas
 ├── experimentos.py          # Escenarios: homogéneo, heterogéneo, paquete, escalabilidad, degradado
 ├── graficas.py              # Figuras (Gantt, barras, curva de paquete, speedup...)
